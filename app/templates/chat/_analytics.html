@@ -1,0 +1,267 @@
+<!-- Emotion Analytics Card -->
+<div class="card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="card-title mb-0">Emotion Analytics</h5>
+        <button class="btn btn-sm btn-outline-primary" onclick="updateAnalytics()">
+            <i class="fas fa-sync-alt"></i> Update
+        </button>
+    </div>
+    <div class="card-body">
+        <!-- Timeline Chart -->
+        <div class="mb-4">
+            <h6>Emotion Timeline</h6>
+            <canvas id="emotionTimeline"></canvas>
+        </div>
+        
+        <!-- Distribution Charts -->
+        <div class="row">
+            <div class="col-md-6">
+                <h6>Emotion Distribution</h6>
+                <canvas id="emotionPie"></canvas>
+            </div>
+            <div class="col-md-6">
+                <h6>Intent Distribution</h6>
+                <canvas id="intentPie"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Emotion Legend -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Emotion Guide</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-6">
+                <div class="mb-2">
+                    <span class="emotion-icon">😊</span> Joy
+                </div>
+                <div class="mb-2">
+                    <span class="emotion-icon">🌟</span> Optimism
+                </div>
+                <div class="mb-2">
+                    <span class="emotion-icon">❤️</span> Love
+                </div>
+                <div class="mb-2">
+                    <span class="emotion-icon">😮</span> Surprise
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="mb-2">
+                    <span class="emotion-icon">😠</span> Anger
+                </div>
+                <div class="mb-2">
+                    <span class="emotion-icon">😢</span> Sadness
+                </div>
+                <div class="mb-2">
+                    <span class="emotion-icon">😨</span> Fear
+                </div>
+                <div class="mb-2">
+                    <span class="emotion-icon">😐</span> Neutral
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Intent Legend -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Intent Guide</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-6">
+                <div class="mb-2">
+                    <span class="intent-icon">❓</span> Question
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">👍</span> Agreement
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">👎</span> Disagreement
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">💡</span> Suggestion
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">🙏</span> Request
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="mb-2">
+                    <span class="intent-icon">👋</span> Greeting
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">👋</span> Farewell
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">🙏</span> Gratitude
+                </div>
+                <div class="mb-2">
+                    <span class="intent-icon">😅</span> Apology
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.emotion-icon, .intent-icon {
+    font-size: 1.2em;
+    margin-right: 0.5em;
+    display: inline-block;
+    width: 1.5em;
+    text-align: center;
+}
+</style>
+
+<script>
+let emotionTimelineChart = null;
+let emotionPieChart = null;
+let intentPieChart = null;
+
+const emotionColors = {
+    'joy': '#28a745',
+    'optimism': '#20c997',
+    'love': '#e83e8c',
+    'anger': '#dc3545',
+    'sadness': '#6c757d',
+    'fear': '#6610f2',
+    'surprise': '#17a2b8',
+    'neutral': '#adb5bd'
+};
+
+const intentColors = {
+    'question': '#007bff',
+    'agreement': '#28a745',
+    'disagreement': '#dc3545',
+    'suggestion': '#6610f2',
+    'request': '#fd7e14',
+    'greeting': '#20c997',
+    'farewell': '#6c757d',
+    'gratitude': '#e83e8c',
+    'apology': '#17a2b8',
+    'other': '#adb5bd'
+};
+
+function updateAnalytics() {
+    fetch(`/room/{{ room.id }}/analytics`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateEmotionTimeline(data.emotion_timeline);
+                updateEmotionPie(data.emotion_distribution);
+                updateIntentPie(data.intent_distribution);
+            }
+        })
+        .catch(error => console.error('Error updating analytics:', error));
+}
+
+function updateEmotionTimeline(data) {
+    const ctx = document.getElementById('emotionTimeline').getContext('2d');
+    
+    if (emotionTimelineChart) {
+        emotionTimelineChart.destroy();
+    }
+    
+    emotionTimelineChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: Object.keys(emotionColors).map(emotion => ({
+                label: emotion,
+                data: data.datasets[emotion],
+                backgroundColor: emotionColors[emotion],
+                borderColor: emotionColors[emotion],
+                borderWidth: 1
+            }))
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    }
+                },
+                y: {
+                    stacked: true,
+                    title: {
+                        display: true,
+                        text: 'Message Count'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function updateEmotionPie(data) {
+    const ctx = document.getElementById('emotionPie').getContext('2d');
+    
+    if (emotionPieChart) {
+        emotionPieChart.destroy();
+    }
+    
+    emotionPieChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                data: Object.values(data),
+                backgroundColor: Object.keys(data).map(emotion => emotionColors[emotion])
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function updateIntentPie(data) {
+    const ctx = document.getElementById('intentPie').getContext('2d');
+    
+    if (intentPieChart) {
+        intentPieChart.destroy();
+    }
+    
+    intentPieChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                data: Object.values(data),
+                backgroundColor: Object.keys(data).map(intent => intentColors[intent])
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+// Initial load
+document.addEventListener('DOMContentLoaded', function() {
+    updateAnalytics();
+});
+</script> 

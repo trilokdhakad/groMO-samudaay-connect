@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - Samudaay Connect{% endblock %}
+
+{% block content %}
+<div class="profile-header">
+    <div class="row align-items-center">
+        <div class="col-md-3 text-center">
+            <img src="{{ user.profile.avatar_url or url_for('static', filename='img/default-avatar.svg') }}" 
+                 alt="Profile Picture" 
+                 class="profile-avatar mb-3">
+        </div>
+        <div class="col-md-9">
+            <h2>{{ user.username }}</h2>
+            <p class="text-muted">{{ user.email }}</p>
+            {% if user.profile %}
+                <p>{{ user.profile.bio or 'No bio added yet.' }}</p>
+                <p><strong>Location:</strong> {{ user.profile.location or 'Not specified' }}</p>
+                <p><strong>Timezone:</strong> {{ user.profile.timezone or 'Not specified' }}</p>
+                <p><strong>Languages:</strong> {{ user.profile.language_preferences or 'Not specified' }}</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Activity Stats -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Activity Stats</h5>
+                {% if user.metrics %}
+                    <p><i class="fas fa-comment me-2"></i>Messages: {{ user.metrics.message_count }}</p>
+                    <p><i class="fas fa-users me-2"></i>Rooms: {{ user.metrics.rooms_joined }}</p>
+                    <p><i class="fas fa-clock me-2"></i>Last Active: {{ user.metrics.last_active.strftime('%Y-%m-%d %H:%M') }}</p>
+                {% else %}
+                    <p>No activity recorded yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Interests -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Interests</h5>
+                {% if user.interests.all() %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for interest in user.interests %}
+                            <span class="badge bg-primary">{{ interest.topic }}</span>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No interests added yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Recent Activity</h5>
+                {% if user.messages.all() %}
+                    <div class="list-group list-group-flush">
+                        {% for message in user.messages.order_by(Message.timestamp.desc()).limit(5).all() %}
+                            <div class="list-group-item">
+                                <small class="text-muted">{{ message.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                                <p class="mb-0">{{ message.content[:50] }}{% if message.content|length > 50 %}...{% endif %}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p>No recent activity.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

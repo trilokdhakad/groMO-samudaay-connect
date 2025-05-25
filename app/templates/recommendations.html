@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>Your Recommendations</h1>
+    
+    <div class="row mt-4">
+        <!-- Similar Users -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Similar Users</h4>
+                </div>
+                <div class="card-body">
+                    {% if similar_users %}
+                        <div class="list-group">
+                        {% for user, score in similar_users %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-1">{{ user.username }}</h5>
+                                        {% if user.profile %}
+                                            <small class="text-muted">{{ user.profile.bio[:100] }}...</small>
+                                        {% endif %}
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill">
+                                        {{ "%.0f"|format(score * 100) }}% Match
+                                    </span>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        Common interests:
+                                        {% set user_interests = user.interests.all() %}
+                                        {% set current_user_interests = current_user.interests.all() %}
+                                        {% set common = namespace(count=0) %}
+                                        {% for interest in user_interests %}
+                                            {% if interest in current_user_interests %}
+                                                {% if common.count > 0 %}, {% endif %}
+                                                {{ interest.topic }}
+                                                {% set common.count = common.count + 1 %}
+                                            {% endif %}
+                                        {% endfor %}
+                                    </small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No similar users found yet. Try joining more rooms and participating in discussions!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recommended Rooms -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Recommended Chat Rooms</h4>
+                </div>
+                <div class="card-body">
+                    {% if recommended_rooms %}
+                        <div class="list-group">
+                        {% for room, score in recommended_rooms %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h5 class="mb-1">{{ room.name }}</h5>
+                                        <small class="text-muted">{{ room.description[:100] }}...</small>
+                                    </div>
+                                    <span class="badge bg-primary rounded-pill">
+                                        {{ "%.0f"|format(score * 100) }}% Match
+                                    </span>
+                                </div>
+                                <div class="mt-2">
+                                    <small class="text-muted">
+                                        Topics:
+                                        {% for topic in room.topics %}
+                                            {% if not loop.first %}, {% endif %}
+                                            {{ topic.topic }}
+                                        {% endfor %}
+                                    </small>
+                                </div>
+                                <div class="mt-2">
+                                    <a href="{{ url_for('chat.room', room_id=room.id) }}" class="btn btn-sm btn-outline-primary">Join Room</a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No recommended rooms found yet. Try updating your interests in your profile!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- User Profile Summary -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4>Your Profile Summary</h4>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h5>Activity Stats</h5>
+                            <ul class="list-unstyled">
+                                <li>Messages sent: {{ current_user.metrics.message_count }}</li>
+                                <li>Rooms joined: {{ current_user.metrics.rooms_joined }}</li>
+                                <li>Average sentiment: 
+                                    <span class="badge {% if current_user.metrics.avg_sentiment_compound >= 0.05 %}bg-success{% elif current_user.metrics.avg_sentiment_compound <= -0.05 %}bg-danger{% else %}bg-secondary{% endif %}">
+                                        {{ "%.2f"|format(current_user.metrics.avg_sentiment_compound) }}
+                                    </span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Your Interests</h5>
+                            <div class="d-flex flex-wrap gap-1">
+                                {% for interest in current_user.interests %}
+                                    <span class="badge bg-info">{{ interest.topic }}</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h5>Most Active Hours</h5>
+                            {% if current_user.metrics.peak_activity_hours %}
+                                {% set hours = current_user.metrics.peak_activity_hours|from_json %}
+                                <div class="small">
+                                    {% for hour, count in hours|dictsort %}
+                                        <div>{{ "%02d:00"|format(hour|int) }}: {{ "█" * (count|int) }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No activity data yet</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Refresh recommendations every 5 minutes
+    setInterval(function() {
+        fetch('/api/recommendations')
+            .then(response => response.json())
+            .then(data => {
+                // Update the recommendations on the page
+                // This is a placeholder - you might want to implement the update logic
+                console.log('Recommendations updated:', data);
+            });
+    }, 300000);
+});
+</script>
+{% endblock %} 

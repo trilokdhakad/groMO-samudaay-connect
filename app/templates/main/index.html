@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Samudaay Connect{% endblock %}
+
+{% block content %}
+<div class="jumbotron bg-light p-5 rounded">
+    <h1 class="display-4">Welcome to Samudaay Connect</h1>
+    <p class="lead">Connect with your community in real-time through intelligent chat rooms.</p>
+    <hr class="my-4">
+    <p>Join chat rooms, discover topics of interest, and engage in meaningful conversations.</p>
+    <a class="btn btn-primary btn-lg" href="{{ url_for('chat.rooms') }}">
+        <i class="fas fa-comments me-2"></i>Browse Chat Rooms
+    </a>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-brain me-2"></i>Smart Conversations</h5>
+                <p class="card-text">Our AI-powered system analyzes conversations to provide better engagement and recommendations.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-users me-2"></i>Community Focus</h5>
+                <p class="card-text">Connect with people who share your interests and build meaningful relationships.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title"><i class="fas fa-shield-alt me-2"></i>Safe & Secure</h5>
+                <p class="card-text">Your privacy and security are our top priorities. All conversations are protected.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
