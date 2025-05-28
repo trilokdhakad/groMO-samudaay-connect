@@ -1,0 +1,77 @@
+{% extends "gp/base.html" %}
+
+{% block gp_content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">This Week's Tasks</h5>
+            </div>
+            <div class="card-body">
+                {% if tasks %}
+                <div class="list-group">
+                    {% for task in tasks %}
+                    <div class="list-group-item">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h5 class="mb-1">{{ task.title }}</h5>
+                            <small>{{ task.points }} points</small>
+                        </div>
+                        <p class="mb-1">{{ task.description }}</p>
+                        {% if task.id in task_statuses %}
+                            {% set status = task_statuses[task.id] %}
+                            <div class="mt-2">
+                                {% if status.status == 'completed' %}
+                                    <span class="badge bg-warning">Pending Review</span>
+                                {% elif status.status == 'approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% elif status.status == 'rejected' %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                    <a href="{{ url_for('gp.submit_task', task_id=task.id) }}" class="btn btn-sm btn-primary ml-2">Resubmit</a>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <a href="{{ url_for('gp.submit_task', task_id=task.id) }}" class="btn btn-sm btn-primary mt-2">Submit Task</a>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-muted">No tasks available for this week.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Current Rankings</h5>
+            </div>
+            <div class="card-body">
+                {% if leaderboard %}
+                <div class="list-group">
+                    {% for entry in leaderboard[:5] %}
+                    <div class="list-group-item {% if entry.gp_id == current_user.id %}list-group-item-primary{% endif %}">
+                        <div class="d-flex w-100 justify-content-between">
+                            <h6 class="mb-1">
+                                {% if entry.rank <= 3 %}
+                                    <i class="fas fa-trophy text-warning"></i>
+                                {% endif %}
+                                {{ entry.rank }}. {{ entry.gp.username }}
+                            </h6>
+                            <span>{{ entry.total_points }} pts</span>
+                        </div>
+                        <small>Tasks completed: {{ entry.tasks_completed }}</small>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('gp.view_leaderboard') }}" class="btn btn-sm btn-outline-primary">View Full Leaderboard</a>
+                </div>
+                {% else %}
+                <p class="text-muted">No rankings available yet.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

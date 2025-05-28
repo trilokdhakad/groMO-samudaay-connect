@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, TextAreaField, PasswordField, BooleanField, SubmitField
-from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError
+from wtforms import StringField, TextAreaField, PasswordField, BooleanField, SubmitField, IntegerField, FileField
+from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange, Optional
+from flask_wtf.file import FileAllowed
 from app.models import User
 
 class LoginForm(FlaskForm):
@@ -34,4 +35,20 @@ class CreateRoomForm(FlaskForm):
     description = TextAreaField('Description', validators=[
         Length(max=200, message='Description cannot be longer than 200 characters')
     ])
-    submit = SubmitField('Create Room') 
+    submit = SubmitField('Create Room')
+
+class TaskCreationForm(FlaskForm):
+    title = StringField('Task Title', validators=[DataRequired(), Length(min=3, max=200)])
+    description = TextAreaField('Task Description', validators=[DataRequired()])
+    points = IntegerField('Points', validators=[DataRequired(), NumberRange(min=1)])
+    week_number = IntegerField('Week Number', validators=[DataRequired(), NumberRange(min=1, max=52)])
+    year = IntegerField('Year', validators=[DataRequired()])
+    submit = SubmitField('Create Task')
+
+class TaskSubmissionForm(FlaskForm):
+    proof_text = TextAreaField('Proof of Completion')
+    proof_file = FileField('Upload Proof (Optional)', validators=[
+        Optional(),
+        FileAllowed(['jpg', 'png', 'pdf', 'doc', 'docx'], 'Images and documents only!')
+    ])
+    submit = SubmitField('Submit Task') 

@@ -53,4 +53,24 @@ def register():
             db.session.rollback()
             flash(f'Error during registration: {str(e)}', 'error')
             return redirect(url_for('auth.register'))
-    return render_template('auth/register.html', title='Register', form=form) 
+    return render_template('auth/register.html', title='Register', form=form)
+
+@bp.route('/make_gp/<username>')
+def make_gp(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    user.is_gp = True
+    db.session.commit()
+    flash(f'User {username} is now a GP!', 'success')
+    return redirect(url_for('auth.login'))
+
+@bp.route('/make_all_gp')
+def make_all_gp():
+    users = User.query.all()
+    count = 0
+    for user in users:
+        if not user.is_gp:
+            user.is_gp = True
+            count += 1
+    db.session.commit()
+    flash(f'Made {count} users GPs!', 'success')
+    return redirect(url_for('auth.login')) 

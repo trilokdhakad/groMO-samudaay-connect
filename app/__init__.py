@@ -7,6 +7,7 @@ from flask_migrate import Migrate
 from flask_mail import Mail
 from config import Config
 import json
+import os
 
 db = SQLAlchemy()
 migrate = Migrate()
@@ -37,9 +38,22 @@ def create_app():
     from app.chat import bp as chat_bp
     app.register_blueprint(chat_bp)
 
+    # Import GP blueprint
+    from app.gp import bp as gp_bp
+    app.register_blueprint(gp_bp, url_prefix='/gp')
+
+    # Create upload folder for task submissions
+    UPLOAD_FOLDER = os.path.join(app.static_folder, 'uploads')
+    if not os.path.exists(UPLOAD_FOLDER):
+        os.makedirs(UPLOAD_FOLDER)
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
     # Initialize admin after everything else
     init_admin(app, db)
 
+    # Initialize scheduler
+    from app.scheduler import init_scheduler
+    scheduler = init_scheduler(app)
 
     return app
 

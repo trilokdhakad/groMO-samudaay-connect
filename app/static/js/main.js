@@ -8,8 +8,10 @@ const currentUserId = chatContainer ? parseInt(chatContainer.dataset.userId) : n
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize Socket.IO if we're on a chat page
     if (document.querySelector('.chat-container')) {
+        console.log('Initializing chat...');
         initializeSocket();
         initializeAutoRefresh();
+        initializeQASystem();
     }
 
     // Initialize Bootstrap tooltips
@@ -25,63 +27,291 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-function initializeSocket() {
-    if (!socket) {
-        socket = io();
-        
-        const messageForm = document.getElementById('message-form');
-        const messageInput = document.getElementById('message-input');
-        const roomId = messageForm ? messageForm.dataset.roomId : null;
+function initializeQASystem() {
+    const isQuestionCheckbox = document.getElementById('is-question');
+    const pointsInput = document.getElementById('points-input');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
 
-        if (messageForm && messageInput && roomId) {
-            // Handle form submission
-            messageForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                const content = messageInput.value.trim();
+    // Toggle points input when question checkbox changes
+    if (isQuestionCheckbox) {
+        isQuestionCheckbox.addEventListener('change', function() {
+            pointsInput.style.display = this.checked ? 'block' : 'none';
+            if (this.checked) {
+                pointsInput.value = '10'; // Default points
+                pointsInput.min = '1';  // Minimum points
+                pointsInput.max = document.querySelector('.card-body .badge.bg-warning.text-dark')?.textContent || '100';  // Max is user's current points
+            }
+        });
+    }
+
+    // Handle answer button clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.answer-btn')) {
+            const btn = e.target.closest('.answer-btn');
+            const questionId = btn.dataset.questionId;
+            handleAnswerClick(questionId);
+        }
+    });
+
+    // Handle accept answer button clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.accept-answer-btn')) {
+            const btn = e.target.closest('.accept-answer-btn');
+            const answerId = btn.dataset.answerId;
+            handleAcceptAnswer(answerId);
+        }
+    });
+
+    // Handle rating stars clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.rating-stars i')) {
+            const star = e.target.closest('.rating-stars i');
+            const rating = parseInt(star.dataset.rating);
+            const messageId = star.closest('.rating-container').dataset.messageId;
+            handleRating(messageId, rating);
+        }
+    });
+
+    // Handle message form submission
+    if (messageForm) {
+        messageForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const content = messageInput.value.trim();
+            const isQuestion = isQuestionCheckbox.checked;
+            const points = isQuestion ? parseInt(pointsInput.value) || 10 : 0;
+            const questionId = messageInput.dataset.answeringQuestion;
+            
+            if (content) {
+                // Disable submit button to prevent double submission
+                const submitButton = this.querySelector('button[type="submit"]');
+                submitButton.disabled = true;
                 
-                if (content) {
-                    socket.emit('message', {
-                        room_id: roomId,
-                        content: content
+                if (questionId) {
+                    // Sending an answer
+                    socket.emit('answer', {
+                        room_id: messageForm.dataset.roomId,
+                        content: content,
+                        question_id: questionId
                     });
-                    messageInput.value = '';
+                    messageInput.removeAttribute('data-answering-question');
+                    messageInput.placeholder = 'Type your message...';
+                } else {
+                    // Sending a regular message or question
+                    socket.emit('message', {
+                        room_id: messageForm.dataset.roomId,
+                        content: content,
+                        is_question: isQuestion,
+                        points_offered: points
+                    });
+                }
+                
+                // Clear form
+                messageInput.value = '';
+                isQuestionCheckbox.checked = false;
+                pointsInput.value = '';
+                pointsInput.style.display = 'none';
+                
+                // Re-enable submit button after a short delay
+                setTimeout(() => {
+                    submitButton.disabled = false;
+                }, 500);
+            }
+        });
+    }
+}
+
+function handleAnswerClick(questionId) {
+    const messageInput = document.getElementById('message-input');
+    const questionElement = document.querySelector(`.message[data-message-id="${questionId}"]`);
+    
+    if (!questionElement) {
+        console.error('Question element not found');
+        return;
+    }
+
+    // Create or get the reply indicator
+    let replyIndicator = document.getElementById('reply-indicator');
+    if (!replyIndicator) {
+        replyIndicator = document.createElement('div');
+        replyIndicator.id = 'reply-indicator';
+        replyIndicator.className = 'reply-indicator bg-light p-2 mb-2 rounded border-start border-4 border-primary d-flex justify-content-between align-items-center';
+        messageInput.parentElement.insertBefore(replyIndicator, messageInput);
+    }
+
+    // Get the question content
+    const questionContent = questionElement.querySelector('.mb-0').textContent;
+    
+    // Update reply indicator
+    replyIndicator.innerHTML = `
+        <div>
+            <small class="text-muted">Answering question:</small>
+            <div class="text-truncate" style="max-width: 300px;">${questionContent}</div>
+        </div>
+        <button type="button" class="btn-close" aria-label="Cancel reply"></button>
+    `;
+
+    // Handle cancel reply
+    replyIndicator.querySelector('.btn-close').addEventListener('click', function() {
+        replyIndicator.remove();
+        messageInput.removeAttribute('data-answering-question');
+        messageInput.placeholder = 'Type your message...';
+    });
+
+    messageInput.focus();
+    messageInput.setAttribute('data-answering-question', questionId);
+    messageInput.placeholder = 'Type your answer...';
+    
+    // Scroll the question into view
+    questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function handleAcceptAnswer(answerId) {
+    socket.emit('accept_answer', { answer_id: answerId });
+}
+
+function handleRating(messageId, rating) {
+    socket.emit('rate_answer', { 
+        message_id: messageId,
+        rating: rating
+    });
+    
+    // Update the stars UI
+    const stars = document.querySelectorAll(`.rating-container[data-message-id="${messageId}"] .rating-stars i`);
+    stars.forEach((star, index) => {
+        if (index < rating) {
+            star.classList.add('active');
+        } else {
+            star.classList.remove('active');
+        }
+    });
+}
+
+function initializeSocket() {
+    try {
+        if (!socket) {
+            console.log('Creating new Socket.IO connection...');
+            socket = io({
+                transports: ['websocket'],
+                upgrade: false,
+                reconnection: true,
+                reconnectionAttempts: 5
+            });
+            
+            const messageForm = document.getElementById('message-form');
+            const messageInput = document.getElementById('message-input');
+            const roomId = messageForm ? messageForm.dataset.roomId : null;
+
+            if (messageForm && messageInput && roomId) {
+                console.log('Setting up message form handlers for room:', roomId);
+                
+                // Handle form submission
+                messageForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const content = messageInput.value.trim();
+                    const isQuestion = document.getElementById('is-question').checked;
+                    const pointsInput = document.getElementById('points-input');
+                    const points = isQuestion ? parseInt(pointsInput.value) || 10 : 0;
+                    
+                    if (content) {
+                        console.log('Sending message to room:', roomId);
+                        socket.emit('message', {
+                            room_id: roomId,
+                            content: content,
+                            is_question: isQuestion,
+                            points_offered: points
+                        });
+                        messageInput.value = '';
+                        pointsInput.value = '';
+                        document.getElementById('is-question').checked = false;
+                        pointsInput.style.display = 'none';
+                    }
+                });
+
+                // Join room when form is available
+                console.log('Joining room:', roomId);
+                socket.emit('join', { room_id: roomId });
+
+                // Handle page unload
+                window.addEventListener('beforeunload', function() {
+                    console.log('Leaving room:', roomId);
+                    socket.emit('leave', { room_id: roomId });
+                });
+            } else {
+                console.error('Missing required elements:', {
+                    hasForm: !!messageForm,
+                    hasInput: !!messageInput,
+                    roomId: roomId
+                });
+            }
+
+            // Socket event handlers
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                showToast('Connected to chat server', 'success');
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                showToast('Failed to connect to chat server', 'error');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                showToast('Disconnected from chat server', 'warning');
+            });
+
+            socket.on('message', (data) => {
+                console.log('Received message:', data);
+                appendMessage(data);
+            });
+
+            socket.on('answer_accepted', (data) => {
+                console.log('Answer accepted:', data);
+                const answerElement = document.querySelector(`.message[data-message-id="${data.answer_id}"]`);
+                if (answerElement) {
+                    answerElement.classList.add('accepted-answer');
+                    showToast(`Answer accepted! ${data.points_transferred} points transferred.`, 'success');
                 }
             });
 
-            // Join room when form is available
-            socket.emit('join', { room_id: roomId });
+            socket.on('rating_updated', (data) => {
+                console.log('Rating updated:', data);
+                showToast(`Rating submitted successfully! New rating: ${data.new_rating}`, 'success');
+            });
 
-            // Handle page unload
-            window.addEventListener('beforeunload', function() {
-                socket.emit('leave', { room_id: roomId });
+            socket.on('user_joined', (data) => {
+                console.log('User joined:', data);
+                showToast(`${data.username} joined the room`, 'info');
+                updateActiveMembers(data.active_members);
+            });
+
+            socket.on('user_left', (data) => {
+                console.log('User left:', data);
+                showToast(`${data.username} left the room`, 'info');
+                updateActiveMembers(data.active_members);
+            });
+
+            socket.on('error', (data) => {
+                console.error('Server error:', data);
+                showToast(data.message || 'An error occurred', 'error');
+                
+                // Re-enable form if points deduction failed
+                if (data.message.includes('points')) {
+                    const messageForm = document.getElementById('message-form');
+                    const submitButton = messageForm.querySelector('button[type="submit"]');
+                    submitButton.disabled = false;
+                }
+            });
+
+            socket.on('points_update', (data) => {
+                console.log('Points updated:', data);
+                updateUserPoints(data.points);
             });
         }
-
-        // Connection events
-        socket.on('connect', () => {
-            console.log('Connected to server');
-            showToast('Connected to chat server', 'success');
-        });
-
-        socket.on('disconnect', () => {
-            console.log('Disconnected from server');
-            showToast('Disconnected from chat server', 'warning');
-        });
-
-        // Chat events
-        socket.on('message', (data) => {
-            appendMessage(data);
-        });
-
-        socket.on('user_joined', (data) => {
-            showToast(`${data.username} joined the room`, 'info');
-            updateActiveMembers(data.active_members);
-        });
-
-        socket.on('user_left', (data) => {
-            showToast(`${data.username} left the room`, 'info');
-            updateActiveMembers(data.active_members);
-        });
+    } catch (error) {
+        console.error('Error initializing socket:', error);
+        showToast('Failed to initialize chat', 'error');
     }
 }
 
@@ -92,70 +322,147 @@ function initializeAutoRefresh() {
 
 function appendMessage(data) {
     const messagesContainer = document.querySelector('.chat-messages');
-    if (!messagesContainer) return;
+    if (!messagesContainer) {
+        console.error('Messages container not found');
+        return;
+    }
 
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${data.user_id === currentUserId ? 'sent' : 'received'}`;
-    
-    const messageContent = document.createElement('div');
-    messageContent.className = 'message-content';
-    
-    const username = document.createElement('small');
-    username.className = 'text-muted d-block';
-    username.textContent = data.username;
-    
-    const text = document.createElement('p');
-    text.className = 'mb-0';
-    text.textContent = data.content;
-    
-    const metadata = document.createElement('div');
-    metadata.className = 'message-metadata';
-    
-    const intentEmoji = document.createElement('span');
-    intentEmoji.className = 'message-emoji';
-    intentEmoji.textContent = data.intent_emoji || '💬';
-    
-    const intentBadge = document.createElement('span');
-    intentBadge.className = 'intent-badge';
-    intentBadge.textContent = data.intent;
-    
-    const emotionEmoji = document.createElement('span');
-    emotionEmoji.className = 'message-emoji';
-    emotionEmoji.textContent = data.emotion_emoji || '😐';
-    
-    const emotionBadge = document.createElement('span');
-    emotionBadge.className = `emotion-badge emotion-${data.primary_emotion}`;
-    emotionBadge.textContent = data.primary_emotion;
-    
-    const timestamp = document.createElement('small');
-    timestamp.className = 'text-muted float-end';
-    timestamp.textContent = data.timestamp;
-    
-    metadata.appendChild(intentEmoji);
-    metadata.appendChild(intentBadge);
-    metadata.appendChild(emotionEmoji);
-    metadata.appendChild(emotionBadge);
-    metadata.appendChild(timestamp);
-    
-    messageContent.appendChild(username);
-    messageContent.appendChild(text);
-    messageContent.appendChild(metadata);
-    messageDiv.appendChild(messageContent);
-    
-    messagesContainer.appendChild(messageDiv);
-    scrollToBottom(messagesContainer);
+    try {
+        const messageDiv = document.createElement('div');
+        // Set proper classes for questions and answers
+        let messageClasses = ['message'];
+        if (data.is_question) messageClasses.push('question');
+        if (data.parent_id || data.is_answer) messageClasses.push('answer');
+        if (data.user_id === currentUserId) messageClasses.push('sent');
+        else messageClasses.push('received');
+        messageDiv.className = messageClasses.join(' ');
+        messageDiv.setAttribute('data-message-id', data.id);
+        messageDiv.setAttribute('data-user-id', data.user_id);
+        if (data.parent_id) {
+            messageDiv.setAttribute('data-parent-id', data.parent_id);
+            // Add visual connection to parent question
+            const parentQuestion = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
+            if (parentQuestion) {
+                messageDiv.style.marginLeft = '2rem';
+                messageDiv.style.borderLeft = '2px solid #007bff';
+            }
+        }
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        
+        // If this is an answer, show what question it's answering
+        if (data.parent_id) {
+            const answerIndicator = document.createElement('div');
+            answerIndicator.className = 'answer-indicator small text-muted mb-1';
+            const questionElement = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
+            if (questionElement) {
+                const questionText = questionElement.querySelector('.mb-0').textContent;
+                answerIndicator.textContent = `Answering: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}`;
+                messageContent.appendChild(answerIndicator);
+            }
+        }
+        
+        // Header with username and points (if question)
+        const header = document.createElement('div');
+        header.className = 'd-flex justify-content-between align-items-start';
+        
+        const username = document.createElement('small');
+        username.className = 'text-muted';
+        username.textContent = data.username;
+        header.appendChild(username);
+        
+        if (data.is_question) {
+            const pointsBadge = document.createElement('span');
+            pointsBadge.className = 'points-badge';
+            pointsBadge.textContent = `${data.points_offered} points`;
+            header.appendChild(pointsBadge);
+        }
+        
+        messageContent.appendChild(header);
+        
+        const text = document.createElement('p');
+        text.className = 'mb-0';
+        text.textContent = data.content;
+        messageContent.appendChild(text);
+        
+        const metadata = document.createElement('div');
+        metadata.className = 'message-metadata';
+        
+        const intentEmoji = document.createElement('span');
+        intentEmoji.className = 'message-emoji';
+        intentEmoji.textContent = data.intent_emoji || '💬';
+        
+        const intentBadge = document.createElement('span');
+        intentBadge.className = 'intent-badge';
+        intentBadge.textContent = data.intent || 'other';
+        
+        const emotionEmoji = document.createElement('span');
+        emotionEmoji.className = 'message-emoji';
+        emotionEmoji.textContent = data.emotion_emoji || '😐';
+        
+        const emotionBadge = document.createElement('span');
+        emotionBadge.className = `emotion-badge emotion-${data.primary_emotion || 'neutral'}`;
+        emotionBadge.textContent = data.primary_emotion || 'neutral';
+        
+        const timestamp = document.createElement('small');
+        timestamp.className = 'text-muted float-end';
+        timestamp.textContent = data.timestamp;
+        
+        metadata.appendChild(intentEmoji);
+        metadata.appendChild(intentBadge);
+        metadata.appendChild(emotionEmoji);
+        metadata.appendChild(emotionBadge);
+        metadata.appendChild(timestamp);
+        messageContent.appendChild(metadata);
+        
+        // Add message actions
+        const actions = document.createElement('div');
+        actions.className = 'message-actions';
+        
+        // Show answer button for questions that aren't from the current user
+        if (data.is_question && data.user_id !== currentUserId) {
+            const answerBtn = document.createElement('button');
+            answerBtn.className = 'btn btn-sm btn-outline-success answer-btn';
+            answerBtn.setAttribute('data-question-id', data.id);
+            answerBtn.textContent = `Answer (${data.points_offered} points)`;
+            actions.appendChild(answerBtn);
+        }
+        
+        // Show accept answer button for answers to the current user's questions
+        if (data.parent_id) {
+            const question = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
+            if (question && parseInt(question.dataset.userId) === currentUserId && !data.accepted_answer_id) {
+                const acceptBtn = document.createElement('button');
+                acceptBtn.className = 'btn btn-sm btn-outline-primary accept-answer-btn';
+                acceptBtn.setAttribute('data-answer-id', data.id);
+                acceptBtn.textContent = 'Accept Answer';
+                actions.appendChild(acceptBtn);
+            }
+        }
+        
+        messageContent.appendChild(actions);
+        messageDiv.appendChild(messageContent);
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom(messagesContainer);
+        
+        console.log('Message appended successfully with data:', data);
+    } catch (error) {
+        console.error('Error appending message:', error);
+    }
 }
 
 function updateActiveMembers(members) {
-    const membersList = document.getElementById('active-members');
-    if (!membersList) return;
-
-    membersList.innerHTML = members.map(username => `
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            ${username}
-            <span class="badge bg-success rounded-pill">online</span>
-        </li>
-    `).join('');
+    try {
+        const container = document.getElementById('active-members');
+        if (container) {
+            container.innerHTML = members.map(member => `
+                <span class="badge bg-success me-1">${member}</span>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error updating active members:', error);
+    }
 }
 
 function updateRoomTopics() {
@@ -193,22 +500,52 @@ function updateRoomTopics() {
 }
 
 function showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast show bg-${type} text-white position-fixed bottom-0 end-0 m-3`;
-    toast.style.zIndex = '1050';
-    toast.innerHTML = `
-        <div class="toast-body">
-            ${message}
-        </div>
-    `;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
+    try {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        const container = document.getElementById('toast-container') || document.body;
+        container.appendChild(toast);
+        
+        const bsToast = new bootstrap.Toast(toast, {
+            autohide: true,
+            delay: 5000
+        });
+        bsToast.show();
+        
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    } catch (error) {
+        console.error('Error showing toast:', error);
+    }
 }
 
-function scrollToBottom(element) {
-    element.scrollTop = element.scrollHeight;
+function updateUserPoints(points) {
+    const pointsDisplay = document.querySelector('.card-body .badge.bg-warning.text-dark');
+    if (pointsDisplay) {
+        pointsDisplay.textContent = points;
+    }
+}
+
+function scrollToBottom(container) {
+    try {
+        container.scrollTop = container.scrollHeight;
+    } catch (error) {
+        console.error('Error scrolling to bottom:', error);
+    }
 }
 
 function debounce(func, wait) {

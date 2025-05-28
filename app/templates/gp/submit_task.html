@@ -1,0 +1,39 @@
+{% extends "gp/base.html" %}
+
+{% block gp_content %}
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Submit Task: {{ task.title }}</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-4">
+            <h6>Task Description:</h6>
+            <p>{{ task.description }}</p>
+            <div class="badge bg-primary">Points: {{ task.points }}</div>
+        </div>
+        
+        <form method="post" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            <div class="mb-3">
+                <label for="proof_text" class="form-label">{{ form.proof_text.label }}</label>
+                {{ form.proof_text(class="form-control", id="proof_text", rows="4", placeholder="Describe how you completed this task...") }}
+                {% for error in form.proof_text.errors %}
+                <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="mb-3">
+                <label for="proof_file" class="form-label">{{ form.proof_file.label }}</label>
+                {{ form.proof_file(class="form-control", id="proof_file") }}
+                <div class="form-text">Allowed file types: jpg, png, pdf, doc, docx</div>
+                {% for error in form.proof_file.errors %}
+                <div class="text-danger">{{ error }}</div>
+                {% endfor %}
+            </div>
+            <div class="mt-3">
+                {{ form.submit(class="btn btn-primary") }}
+                <a href="{{ url_for('gp.gp_dashboard') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %} 
