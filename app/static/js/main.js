@@ -298,6 +298,29 @@ function initializeSocket() {
                 console.log('Points updated:', data);
                 updateUserPoints(data.points);
             });
+
+            // Handle vote button clicks
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.vote-btn')) {
+                    const btn = e.target.closest('.vote-btn');
+                    const messageId = btn.closest('.vote-buttons').dataset.messageId;
+                    const voteType = btn.dataset.voteType;
+                    
+                    socket.emit('vote_message', {
+                        message_id: messageId,
+                        vote_type: voteType
+                    });
+                }
+            });
+
+            // Handle vote updates from server
+            socket.on('vote_updated', function(data) {
+                const messageElement = document.querySelector(`.vote-buttons[data-message-id="${data.message_id}"]`);
+                if (messageElement) {
+                    messageElement.querySelector('.likes-count').textContent = `Upvote (${data.likes || 0})`;
+                    messageElement.querySelector('.dislikes-count').textContent = `Downvote (${data.dislikes || 0})`;
+                }
+            });
         }
     } catch (error) {
         console.error('Error initializing socket:', error);

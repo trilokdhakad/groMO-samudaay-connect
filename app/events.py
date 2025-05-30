@@ -488,4 +488,39 @@ def handle_accept_answer(data):
     except Exception as e:
         print(f"[DEBUG] Error accepting answer: {str(e)}")
         db.session.rollback()
-        emit('error', {'message': f'Error accepting answer: {str(e)}'}, room=request.sid) 
+        emit('error', {'message': f'Error accepting answer: {str(e)}'}, room=request.sid)
+
+@socketio.on('vote_message')
+def handle_vote(data):
+    """Handle message votes (likes/dislikes)"""
+    if not current_user.is_authenticated:
+        emit('error', {'message': 'You must be logged in to vote'}, room=request.sid)
+        return
+
+    message_id = data.get('message_id')
+    vote_type = data.get('vote_type')  # 'like' or 'dislike'
+
+    if not message_id or vote_type not in ['like', 'dislike']:
+        emit('error', {'message': 'Invalid vote data'}, room=request.sid)
+        return
+
+    try:
+        message = Message.query.get(message_id)
+        if not message:
+            emit('error', {'message': 'Message not found'}, room=request.sid)
+            return
+
+        # Process the vote
+        new_likes, new_dislikes = message.vote(current_user.id, vote_type)
+
+        # Broadcast vote update to all users in the room
+        emit('vote_updated', {
+            'message_id': message_id,
+            'likes': new_likes,
+            'dislikes': new_dislikes
+        }, room=str(message.room_id))
+
+    except Exception as e:
+        print(f"Error in handle_vote: {str(e)}")
+        db.session.rollback()
+        emit('error', {'message': 'Error processing vote'}, room=request.sid) 

@@ -193,6 +193,18 @@
                                             <small class="text-muted float-end">{{ message.timestamp.strftime('%H:%M') }}</small>
                                         </div>
                                         <div class="message-actions">
+                                            {% if message.parent_id %}
+                                                <div class="vote-buttons" data-message-id="{{ message.id }}">
+                                                    <button class="btn btn-sm btn-outline-primary vote-btn" data-vote-type="like">
+                                                        <i class="fas fa-thumbs-up"></i>
+                                                        <span class="likes-count">Upvote ({{ message.likes|default(0) }})</span>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger vote-btn" data-vote-type="dislike">
+                                                        <i class="fas fa-thumbs-down"></i>
+                                                        <span class="dislikes-count">Downvote ({{ message.dislikes|default(0) }})</span>
+                                                    </button>
+                                                </div>
+                                            {% endif %}
                                             {% if message.is_question and not message.accepted_answer_id %}
                                                 {% if current_user.id != message.user_id %}
                                                     <button class="btn btn-sm btn-outline-success answer-btn" data-question-id="{{ message.id }}">

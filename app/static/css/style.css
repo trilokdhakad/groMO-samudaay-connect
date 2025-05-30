@@ -321,4 +321,37 @@ main {
     border: 2px solid var(--success-color);
     background-color: #f1f8e9;
     box-shadow: 0 2px 5px rgba(76, 175, 80, 0.2);
+}
+
+/* Vote buttons styles */
+.vote-buttons {
+    display: inline-flex;
+    gap: 0.5rem;
+    margin-right: 1rem;
+}
+
+.vote-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+}
+
+.vote-btn i {
+    font-size: 0.875rem;
+}
+
+.vote-btn[data-vote-type="like"]:hover,
+.vote-btn[data-vote-type="like"].active {
+    background-color: #198754;
+    border-color: #198754;
+    color: white;
+}
+
+.vote-btn[data-vote-type="dislike"]:hover,
+.vote-btn[data-vote-type="dislike"].active {
+    background-color: #dc3545;
+    border-color: #dc3545;
+    color: white;
 } 

@@ -316,6 +316,9 @@ class Message(db.Model):
     topics = db.Column(db.String(200))  # Comma-separated list of detected topics
     language = db.Column(db.String(50))
     word_count = db.Column(db.Integer, default=0)
+    likes = db.Column(db.Integer, default=0)
+    dislikes = db.Column(db.Integer, default=0)
+    voted_users = db.relationship('MessageVote', backref='message', lazy='dynamic')
 
     def is_closed(self):
         """Check if the question is closed (has accepted answer)"""
@@ -485,6 +488,55 @@ class Message(db.Model):
         }
         return emotion_emojis.get(self.primary_emotion, '😐')
 
+    def vote(self, user_id, vote_type):
+        """Handle user vote on message
+        vote_type: 'like' or 'dislike'
+        Returns: (new_likes, new_dislikes)
+        """
+        # Initialize likes and dislikes if they are None
+        if self.likes is None:
+            self.likes = 0
+        if self.dislikes is None:
+            self.dislikes = 0
+
+        existing_vote = MessageVote.query.filter_by(
+            message_id=self.id,
+            user_id=user_id
+        ).first()
+
+        if existing_vote:
+            if existing_vote.vote_type == vote_type:
+                # Remove vote if clicking same button
+                if vote_type == 'like':
+                    self.likes = max(0, self.likes - 1)
+                else:
+                    self.dislikes = max(0, self.dislikes - 1)
+                db.session.delete(existing_vote)
+            else:
+                # Change vote type
+                if vote_type == 'like':
+                    self.likes = self.likes + 1
+                    self.dislikes = max(0, self.dislikes - 1)
+                else:
+                    self.likes = max(0, self.likes - 1)
+                    self.dislikes = self.dislikes + 1
+                existing_vote.vote_type = vote_type
+        else:
+            # New vote
+            if vote_type == 'like':
+                self.likes = self.likes + 1
+            else:
+                self.dislikes = self.dislikes + 1
+            new_vote = MessageVote(
+                message_id=self.id,
+                user_id=user_id,
+                vote_type=vote_type
+            )
+            db.session.add(new_vote)
+
+        db.session.commit()
+        return self.likes, self.dislikes
+
 class UserMetrics(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), unique=True)
@@ -591,4 +643,15 @@ class GPProfile(db.Model):
     last_task_completion = db.Column(db.DateTime)
     
     # Relationship
-    user = db.relationship('User', backref=db.backref('gp_profile', uselist=False)) 
+    user = db.relationship('User', backref=db.backref('gp_profile', uselist=False))
+
+class MessageVote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    vote_type = db.Column(db.String(10), nullable=False)  # 'like' or 'dislike'
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        db.UniqueConstraint('message_id', 'user_id', name='unique_message_vote'),
+    ) 
