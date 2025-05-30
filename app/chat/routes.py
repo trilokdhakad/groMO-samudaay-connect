@@ -1,6 +1,6 @@
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from app import db
+from app import db, socketio
 from app.chat import bp
 from app.models import Room, Message, RoomMembership
 from app.forms import CreateRoomForm
@@ -8,6 +8,7 @@ from app.text_analysis import text_analyzer
 from datetime import datetime, timedelta
 import json
 from collections import defaultdict
+from flask_socketio import emit, join_room, leave_room
 
 @bp.route('/rooms')
 @login_required
@@ -165,4 +166,151 @@ def room_analytics(room_id):
         'emotion_distribution': emotion_distribution,
         'intent_distribution': intent_distribution,
         'last_update': datetime.utcnow().isoformat()
-    }) 
+    })
+
+@socketio.on('join')
+def on_join(data):
+    """Event handler for when a user joins a room."""
+    room_id = data.get('room_id')
+    if room_id:
+        join_room(room_id)
+        emit('user_joined', {
+            'username': current_user.username,
+            'room_id': room_id
+        }, room=room_id)
+
+@socketio.on('leave')
+def on_leave(data):
+    """Event handler for when a user leaves a room."""
+    room_id = data.get('room_id')
+    if room_id:
+        leave_room(room_id)
+        emit('user_left', {
+            'username': current_user.username,
+            'room_id': room_id
+        }, room=room_id)
+
+@socketio.on('message')
+def handle_message(data):
+    """Event handler for new messages."""
+    if not current_user.is_authenticated:
+        return
+        
+    room_id = data.get('room_id')
+    content = data.get('content')
+    is_question = data.get('is_question', False)
+    points_offered = data.get('points_offered', 0)
+    
+    if not room_id or not content:
+        return
+        
+    try:
+        # Create message
+        message = Message(
+            content=content,
+            author=current_user,
+            room_id=room_id,
+            is_question=is_question,
+            points_offered=points_offered
+        )
+        
+        db.session.add(message)
+        db.session.commit()
+        
+        # Broadcast the message
+        emit('message', message.to_dict(), room=room_id)
+    except Exception as e:
+        print("Error saving message:", str(e))
+        db.session.rollback()
+        emit('error', {'message': 'Error saving message: ' + str(e)})
+
+@socketio.on('answer')
+def handle_answer(data):
+    """Event handler for answers to questions."""
+    if not current_user.is_authenticated:
+        return
+        
+    room_id = data.get('room_id')
+    content = data.get('content')
+    question_id = data.get('question_id')
+    
+    if not all([room_id, content, question_id]):
+        emit('error', {'message': 'Missing required data for answer'})
+        return
+        
+    try:
+        # Get the question being answered
+        question = Message.query.get(question_id)
+        if not question or not question.is_question:
+            emit('error', {'message': 'Invalid question ID'})
+            return
+            
+        # Create answer message
+        answer = Message(
+            content=content,
+            author=current_user,
+            room_id=room_id,
+            parent_id=question_id,
+            is_answer=True
+        )
+        
+        db.session.add(answer)
+        db.session.commit()
+        
+        # Broadcast the answer
+        answer_data = answer.to_dict()
+        answer_data['parent_id'] = question_id
+        emit('message', answer_data, room=room_id)
+    except Exception as e:
+        print("Error saving answer:", str(e))
+        db.session.rollback()
+        emit('error', {'message': 'Error saving answer: ' + str(e)})
+
+@socketio.on('accept_answer')
+def handle_accept_answer(data):
+    """Event handler for accepting answers."""
+    if not current_user.is_authenticated:
+        return
+        
+    answer_id = data.get('answer_id')
+    if not answer_id:
+        emit('error', {'message': 'Missing answer ID'})
+        return
+        
+    try:
+        # Get the answer and its question
+        answer = Message.query.get(answer_id)
+        if not answer or not answer.parent_id:
+            emit('error', {'message': 'Invalid answer'})
+            return
+            
+        question = Message.query.get(answer.parent_id)
+        if not question or question.author_id != current_user.id:
+            emit('error', {'message': 'You can only accept answers to your own questions'})
+            return
+            
+        if question.accepted_answer_id:
+            emit('error', {'message': 'This question already has an accepted answer'})
+            return
+            
+        # Accept the answer and transfer points
+        question.accepted_answer_id = answer_id
+        points_transferred = question.points_offered
+        
+        # Transfer points from question author to answer author
+        question.author.points -= points_transferred
+        answer.author.points += points_transferred
+        
+        db.session.commit()
+        
+        # Notify clients
+        emit('answer_accepted', {
+            'answer_id': answer_id,
+            'question_id': question.id,
+            'points_transferred': points_transferred
+        }, room=question.room_id)
+        
+    except Exception as e:
+        print("Error accepting answer:", str(e))
+        db.session.rollback()
+        emit('error', {'message': 'Error accepting answer: ' + str(e)}) 

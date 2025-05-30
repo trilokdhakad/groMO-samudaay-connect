@@ -355,52 +355,26 @@ class Message(db.Model):
             return 'open'
 
     def to_dict(self):
-        """Convert message to dictionary format"""
-        data = {
+        """Convert message to dictionary for JSON serialization"""
+        return {
             'id': self.id,
             'content': self.content,
+            'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
             'user_id': self.user_id,
             'username': self.author.username,
-            'timestamp': self.timestamp.strftime('%H:%M'),
+            'room_id': self.room_id,
             'is_question': self.is_question,
             'points_offered': self.points_offered,
             'parent_id': self.parent_id,
+            'is_answer': bool(self.parent_id),  # True if this is an answer to a question
             'accepted_answer_id': self.accepted_answer_id,
-            'rating_sum': self.rating_sum,
+            'rating': self.get_average_rating(),
             'rating_count': self.rating_count,
-            'avg_rating': self.get_average_rating(),
-            'intent': self.intent,
-            'intent_emoji': self.get_intent_emoji(),
             'primary_emotion': self.primary_emotion,
-            'emotion_emoji': self.get_emotion_emoji()
+            'emotion_emoji': self.get_emotion_emoji(),
+            'intent': self.intent,
+            'intent_emoji': self.get_intent_emoji()
         }
-        
-        # Add question-specific data
-        if self.is_question:
-            answers_count = self.answers.count()
-            data.update({
-                'status': self.get_question_status(),
-                'answer_count': answers_count,
-                'is_closed': self.is_closed(),
-                'has_answers': answers_count > 0,
-                'best_answer': self.accepted_answer.to_dict() if self.accepted_answer else None
-            })
-        
-        # Add answer-specific data
-        if self.parent_id:
-            data.update({
-                'is_accepted': self.id == self.parent_message.accepted_answer_id if self.parent_message else False,
-                'can_be_accepted': bool(self.parent_message and 
-                                      not self.parent_message.is_closed() and 
-                                      self.parent_message.user_id != self.user_id),
-                'ratings': [{
-                    'rating': r.rating,
-                    'rater_id': r.rater_id,
-                    'timestamp': r.timestamp.strftime('%H:%M')
-                } for r in Rating.query.filter_by(message_id=self.id).all()]
-            })
-        
-        return data
 
     def get_average_rating(self):
         """Get the average rating for this answer"""

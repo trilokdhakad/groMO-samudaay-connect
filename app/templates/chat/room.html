@@ -170,8 +170,14 @@
                     <div class="chat-container" data-user-id="{{ current_user.id }}">
                         <div class="chat-messages" id="chat-messages">
                             {% for message in messages %}
-                                <div class="message {% if message.is_question %}question{% elif message.parent_id %}answer{% if message.id == message.parent.accepted_answer_id %}accepted-answer{% endif %}{% endif %} {% if message.user_id == current_user.id %}sent{% else %}received{% endif %}" data-message-id="{{ message.id }}" data-user-id="{{ message.user_id }}">
+                                <div class="message {% if message.is_question %}question{% elif message.parent_id %}answer{% if message.id == message.parent_message.accepted_answer_id %}accepted-answer{% endif %}{% endif %} {% if message.user_id == current_user.id %}sent{% else %}received{% endif %}" data-message-id="{{ message.id }}" data-user-id="{{ message.user_id }}">
                                     <div class="message-content">
+                                        {% if message.parent_id %}
+                                            <div class="answer-indicator small text-muted mb-1">
+                                                <i class="fas fa-reply text-primary"></i>
+                                                <span>Replying to: {{ message.parent_message.content|truncate(50) }}</span>
+                                            </div>
+                                        {% endif %}
                                         <div class="d-flex justify-content-between align-items-start">
                                             <small class="text-muted">{{ message.author.username }}</small>
                                             {% if message.is_question %}
@@ -194,19 +200,10 @@
                                                     </button>
                                                 {% endif %}
                                             {% endif %}
-                                            {% if message.parent_id and message.parent.user_id == current_user.id and not message.parent.accepted_answer_id %}
+                                            {% if message.parent_id and message.parent_message.user_id == current_user.id and not message.parent_message.accepted_answer_id %}
                                                 <button class="btn btn-sm btn-outline-primary accept-answer-btn" data-answer-id="{{ message.id }}">
                                                     Accept Answer
                                                 </button>
-                                            {% endif %}
-                                            {% if message.parent_id and message.id == message.parent.accepted_answer_id and current_user.id == message.parent.user_id %}
-                                                <div class="rating-container" data-message-id="{{ message.id }}">
-                                                    <div class="rating-stars">
-                                                        {% for i in range(1, 6) %}
-                                                            <i class="fas fa-star" data-rating="{{ i }}"></i>
-                                                        {% endfor %}
-                                                    </div>
-                                                </div>
                                             {% endif %}
                                         </div>
                                     </div>

@@ -77,46 +77,59 @@ function initializeQASystem() {
     if (messageForm) {
         messageForm.addEventListener('submit', function(e) {
             e.preventDefault();
+            const messageInput = document.getElementById('message-input');
             const content = messageInput.value.trim();
-            const isQuestion = isQuestionCheckbox.checked;
+            const isQuestion = document.getElementById('is-question').checked;
+            const pointsInput = document.getElementById('points-input');
             const points = isQuestion ? parseInt(pointsInput.value) || 10 : 0;
             const questionId = messageInput.dataset.answeringQuestion;
             
-            if (content) {
-                // Disable submit button to prevent double submission
-                const submitButton = this.querySelector('button[type="submit"]');
-                submitButton.disabled = true;
+            if (!content) return;
+
+            // Disable submit button to prevent double submission
+            const submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            
+            if (questionId) {
+                // We're answering a specific question
+                console.log('Sending answer to question:', questionId);
+                socket.emit('answer', {
+                    room_id: messageForm.dataset.roomId,
+                    content: content,
+                    question_id: questionId
+                });
                 
-                if (questionId) {
-                    // Sending an answer
-                    socket.emit('answer', {
-                        room_id: messageForm.dataset.roomId,
-                        content: content,
-                        question_id: questionId
-                    });
-                    messageInput.removeAttribute('data-answering-question');
-                    messageInput.placeholder = 'Type your message...';
-                } else {
-                    // Sending a regular message or question
-                    socket.emit('message', {
-                        room_id: messageForm.dataset.roomId,
-                        content: content,
-                        is_question: isQuestion,
-                        points_offered: points
-                    });
+                // Clear the reply indicator
+                const replyIndicator = document.getElementById('reply-indicator');
+                if (replyIndicator) {
+                    replyIndicator.remove();
                 }
                 
-                // Clear form
-                messageInput.value = '';
-                isQuestionCheckbox.checked = false;
+                // Reset the message input
+                messageInput.removeAttribute('data-answering-question');
+                messageInput.placeholder = 'Type your message...';
+            } else {
+                // Regular message or question
+                socket.emit('message', {
+                    room_id: messageForm.dataset.roomId,
+                    content: content,
+                    is_question: isQuestion,
+                    points_offered: points
+                });
+            }
+            
+            // Clear form
+            messageInput.value = '';
+            if (isQuestion) {
+                document.getElementById('is-question').checked = false;
                 pointsInput.value = '';
                 pointsInput.style.display = 'none';
-                
-                // Re-enable submit button after a short delay
-                setTimeout(() => {
-                    submitButton.disabled = false;
-                }, 500);
             }
+            
+            // Re-enable submit button after a short delay
+            setTimeout(() => {
+                submitButton.disabled = false;
+            }, 500);
         });
     }
 }
@@ -162,6 +175,12 @@ function handleAnswerClick(questionId) {
     messageInput.setAttribute('data-answering-question', questionId);
     messageInput.placeholder = 'Type your answer...';
     
+    // Hide question checkbox and points input when answering
+    const isQuestionCheckbox = document.getElementById('is-question');
+    const pointsInput = document.getElementById('points-input');
+    if (isQuestionCheckbox) isQuestionCheckbox.checked = false;
+    if (pointsInput) pointsInput.style.display = 'none';
+    
     // Scroll the question into view
     questionElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -205,29 +224,6 @@ function initializeSocket() {
             if (messageForm && messageInput && roomId) {
                 console.log('Setting up message form handlers for room:', roomId);
                 
-                // Handle form submission
-                messageForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    const content = messageInput.value.trim();
-                    const isQuestion = document.getElementById('is-question').checked;
-                    const pointsInput = document.getElementById('points-input');
-                    const points = isQuestion ? parseInt(pointsInput.value) || 10 : 0;
-                    
-                    if (content) {
-                        console.log('Sending message to room:', roomId);
-                        socket.emit('message', {
-                            room_id: roomId,
-                            content: content,
-                            is_question: isQuestion,
-                            points_offered: points
-                        });
-                        messageInput.value = '';
-                        pointsInput.value = '';
-                        document.getElementById('is-question').checked = false;
-                        pointsInput.style.display = 'none';
-                    }
-                });
-
                 // Join room when form is available
                 console.log('Joining room:', roomId);
                 socket.emit('join', { room_id: roomId });
@@ -236,12 +232,6 @@ function initializeSocket() {
                 window.addEventListener('beforeunload', function() {
                     console.log('Leaving room:', roomId);
                     socket.emit('leave', { room_id: roomId });
-                });
-            } else {
-                console.error('Missing required elements:', {
-                    hasForm: !!messageForm,
-                    hasInput: !!messageInput,
-                    roomId: roomId
                 });
             }
 
@@ -332,25 +322,42 @@ function appendMessage(data) {
         // Set proper classes for questions and answers
         let messageClasses = ['message'];
         if (data.is_question) messageClasses.push('question');
-        if (data.parent_id || data.is_answer) messageClasses.push('answer');
+        if (data.is_answer) messageClasses.push('answer');
         if (data.user_id === currentUserId) messageClasses.push('sent');
         else messageClasses.push('received');
         messageDiv.className = messageClasses.join(' ');
         messageDiv.setAttribute('data-message-id', data.id);
         messageDiv.setAttribute('data-user-id', data.user_id);
+
+        // If this is an answer, add parent question reference and styling
         if (data.parent_id) {
             messageDiv.setAttribute('data-parent-id', data.parent_id);
-            // Add visual connection to parent question
+            messageDiv.style.marginLeft = '2rem';
+            messageDiv.style.borderLeft = '2px solid #007bff';
+            
+            // Find parent question
             const parentQuestion = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
             if (parentQuestion) {
-                messageDiv.style.marginLeft = '2rem';
-                messageDiv.style.borderLeft = '2px solid #007bff';
+                // Insert answer after the parent question
+                let insertAfter = parentQuestion;
+                // Find the last answer to this question
+                const existingAnswers = document.querySelectorAll(`.message[data-parent-id="${data.parent_id}"]`);
+                if (existingAnswers.length > 0) {
+                    insertAfter = existingAnswers[existingAnswers.length - 1];
+                }
+                insertAfter.parentNode.insertBefore(messageDiv, insertAfter.nextSibling);
+            } else {
+                // If parent question not found, append at the end
+                messagesContainer.appendChild(messageDiv);
             }
+        } else {
+            // Regular message or question - append at the end
+            messagesContainer.appendChild(messageDiv);
         }
-        
+
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
-        
+
         // If this is an answer, show what question it's answering
         if (data.parent_id) {
             const answerIndicator = document.createElement('div');
@@ -358,7 +365,10 @@ function appendMessage(data) {
             const questionElement = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
             if (questionElement) {
                 const questionText = questionElement.querySelector('.mb-0').textContent;
-                answerIndicator.textContent = `Answering: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}`;
+                answerIndicator.innerHTML = `
+                    <i class="fas fa-reply text-primary"></i>
+                    <span>Replying to: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</span>
+                `;
                 messageContent.appendChild(answerIndicator);
             }
         }
