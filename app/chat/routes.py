@@ -10,11 +10,52 @@ import json
 from collections import defaultdict
 from flask_socketio import emit, join_room, leave_room
 
+# Predefined lists of states and products
+INDIAN_STATES = [
+    "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+    "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand",
+    "Karnataka", "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur",
+    "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab",
+    "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
+    "Uttar Pradesh", "Uttarakhand", "West Bengal", "Delhi"
+]
+
+PRODUCT_CATEGORIES = [
+    "Credit Cards",
+    "Demat Accounts",
+    "Loans",
+    "Savings Account",
+    "Insurance",
+    "Line of Credit",
+    "Investment"
+]
+
 @bp.route('/rooms')
 @login_required
 def rooms():
-    rooms = Room.query.all()
-    return render_template('chat/rooms.html', rooms=rooms)
+    # Get filter parameters
+    state = request.args.get('state', '')
+    product = request.args.get('product', '')
+    
+    # Query rooms with filters
+    query = Room.query
+    
+    # Only show rooms that follow the State - Product format
+    query = query.filter(Room.name.like('% - %'))
+    
+    if state:
+        query = query.filter(Room.name.like(f"{state} - %"))
+    if product:
+        query = query.filter(Room.name.like(f"% - {product}"))
+    
+    rooms = query.all()
+    
+    return render_template('chat/rooms.html', 
+                         rooms=rooms,
+                         states=INDIAN_STATES,
+                         products=PRODUCT_CATEGORIES,
+                         selected_state=state,
+                         selected_product=product)
 
 @bp.route('/room/<int:room_id>')
 @login_required
@@ -32,23 +73,6 @@ def room(room_id):
     db.session.commit()
     
     return render_template('chat/room.html', room=room, messages=messages)
-
-@bp.route('/create_room', methods=['GET', 'POST'])
-@login_required
-def create_room():
-    form = CreateRoomForm()
-    if form.validate_on_submit():
-        room = Room(name=form.name.data, description=form.description.data)
-        db.session.add(room)
-        
-        # Create room membership for creator
-        membership = RoomMembership(user=current_user, room=room)
-        db.session.add(membership)
-        
-        db.session.commit()
-        flash('Room created successfully!', 'success')
-        return redirect(url_for('chat.room', room_id=room.id))
-    return render_template('chat/create_room.html', form=form)
 
 @bp.route('/room/<int:room_id>/topics')
 @login_required
