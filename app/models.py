@@ -146,6 +146,18 @@ class UserInterest(db.Model):
     topic = db.Column(db.String(50))
     weight = db.Column(db.Float, default=1.0)  # How strongly user is interested in this topic
 
+    # Predefined categories that users can choose from
+    CATEGORIES = [
+        'Technology',
+        'Healthcare',
+        'Education',
+        'Environment',
+        'Business',
+        'Arts & Culture',
+        'Social Impact',
+        'Sports & Fitness'
+    ]
+
 class Room(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)

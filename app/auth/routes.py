@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, current_user
 from app import db
 from app.auth import bp
-from app.models import User, UserProfile, UserMetrics
+from app.models import User, UserProfile, UserMetrics, UserInterest
 from app.auth.forms import LoginForm, RegistrationForm
 
 @bp.route('/login', methods=['GET', 'POST'])
@@ -45,6 +45,11 @@ def register():
             metrics = UserMetrics(user_id=user.id)
             db.session.add(metrics)
 
+            # Create user interests from selected categories
+            for category in form.categories.data:
+                interest = UserInterest(user_id=user.id, topic=category)
+                db.session.add(interest)
+
             db.session.commit()
             
             flash('Registration successful! You can now log in.', 'success')
@@ -53,7 +58,7 @@ def register():
             db.session.rollback()
             flash(f'Error during registration: {str(e)}', 'error')
             return redirect(url_for('auth.register'))
-    return render_template('auth/register.html', title='Register', form=form)
+    return render_template('auth/register.html', title='Register', form=form, categories=UserInterest.CATEGORIES)
 
 @bp.route('/make_gp/<username>')
 def make_gp(username):

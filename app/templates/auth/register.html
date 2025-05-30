@@ -45,6 +45,15 @@
                             <div class="invalid-feedback">{{ error }}</div>
                         {% endfor %}
                     </div>
+
+                    <div class="mb-3">
+                        {{ form.categories.label(class="form-label") }}
+                        {{ form.categories(class="form-select" + (" is-invalid" if form.categories.errors else ""), size="8") }}
+                        <div class="form-text">Hold Ctrl (Windows) or Command (Mac) to select multiple categories.</div>
+                        {% for error in form.categories.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
                     
                     <div class="d-grid">
                         {{ form.submit(class="btn btn-primary btn-lg") }}
