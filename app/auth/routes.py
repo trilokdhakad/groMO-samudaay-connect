@@ -32,7 +32,11 @@ def register():
     if form.validate_on_submit():
         try:
             # Create user
-            user = User(username=form.username.data, email=form.email.data)
+            user = User(
+                username=form.username.data,
+                email=form.email.data,
+                state=form.state.data
+            )
             user.set_password(form.password.data)
             db.session.add(user)
             db.session.flush()  # This will assign the user.id

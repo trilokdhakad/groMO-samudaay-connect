@@ -27,14 +27,15 @@ PRODUCT_CATEGORIES = [
     "Savings Account",
     "Insurance",
     "Line of Credit",
-    "Investment"
+    "Investment",
+    "Others[GD]"
 ]
 
 @bp.route('/rooms')
 @login_required
 def rooms():
-    # Get filter parameters
-    state = request.args.get('state', '')
+    # Get filter parameters, use user's state as default if no state filter is provided
+    state = request.args.get('state', current_user.state)
     product = request.args.get('product', '')
     
     # Query rooms with filters
