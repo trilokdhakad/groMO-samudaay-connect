@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectMultipleField
+from wtforms import StringField, PasswordField, BooleanField, SubmitField, SelectMultipleField, SelectField
 from wtforms.validators import DataRequired, Email, EqualTo, ValidationError, Length
 from app.models import User, UserInterest
+from app.chat.routes import INDIAN_STATES  # Import the list of states
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
@@ -15,6 +16,7 @@ class RegistrationForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     password2 = PasswordField(
         'Repeat Password', validators=[DataRequired(), EqualTo('password')])
+    state = SelectField('State', validators=[DataRequired()], choices=[])
     categories = SelectMultipleField('Select 2-3 Categories of Interest',
         choices=[],
         validators=[DataRequired(), Length(min=2, max=3, message='Please select 2-3 categories')])
@@ -23,6 +25,7 @@ class RegistrationForm(FlaskForm):
     def __init__(self, *args, **kwargs):
         super(RegistrationForm, self).__init__(*args, **kwargs)
         self.categories.choices = [(cat, cat) for cat in UserInterest.CATEGORIES]
+        self.state.choices = [('', 'Select your state')] + [(state, state) for state in INDIAN_STATES]
 
     def validate_username(self, username):
         user = User.query.filter_by(username=username.data).first()

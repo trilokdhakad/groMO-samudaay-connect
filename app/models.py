@@ -22,6 +22,7 @@ class User(UserMixin, db.Model):
     total_ratings = db.Column(db.Integer, nullable=False, default=0)  # Total number of ratings received
     is_admin = db.Column(db.Boolean, nullable=False, default=False)  # Admin status
     is_gp = db.Column(db.Boolean, default=False)
+    state = db.Column(db.String(50), nullable=False)  # User's state
     
     # Relationships
     profile = db.relationship('UserProfile', backref='user', uselist=False)

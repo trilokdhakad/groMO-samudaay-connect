@@ -4,11 +4,30 @@
 
 {% block content %}
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    <div class="mb-4">
         <h1><i class="fas fa-comments me-2"></i>Chat Rooms</h1>
-        <a href="{{ url_for('chat.create_room') }}" class="btn btn-primary">
-            <i class="fas fa-plus me-2"></i>Create Room
-        </a>
+        <div class="row mt-3">
+            <div class="col-md-6">
+                <form method="GET" class="d-flex gap-2">
+                    <select name="state" class="form-select" onchange="this.form.submit()">
+                        <option value="">All States</option>
+                        {% for state in states %}
+                        <option value="{{ state }}" {% if state == selected_state %}selected{% endif %}>
+                            {{ state }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <select name="product" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Products</option>
+                        {% for product in products %}
+                        <option value="{{ product }}" {% if product == selected_product %}selected{% endif %}>
+                            {{ product }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+        </div>
     </div>
 
     <div class="row">
@@ -45,7 +64,7 @@
         {% else %}
             <div class="col-12">
                 <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>No chat rooms available. Be the first to create one!
+                    No rooms found matching the selected filters.
                 </div>
             </div>
         {% endfor %}
