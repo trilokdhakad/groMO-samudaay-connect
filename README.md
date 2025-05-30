@@ -25,5 +25,6 @@ This project is part of the **groMO Samudaay** initiative to intelligently conne
 ```bash
 git clone https://github.com/trilokdhakad/groMO-samudaay-connect.git
 cd groMO-samudaay-connect
+# make a virtual environment first
 pip install -r requirements.txt
 python run.py
