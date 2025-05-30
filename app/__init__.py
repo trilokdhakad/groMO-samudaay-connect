@@ -55,6 +55,10 @@ def create_app():
     from app.scheduler import init_scheduler
     scheduler = init_scheduler(app)
 
+    # Import socket event handlers
+    with app.app_context():
+        from app import events
+
     return app
 
 from app import models 

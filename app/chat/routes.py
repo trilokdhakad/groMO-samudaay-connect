@@ -5,6 +5,7 @@ from app.chat import bp
 from app.models import Room, Message, RoomMembership
 from app.forms import CreateRoomForm
 from app.text_analysis import text_analyzer
+from app.moderation import check_message
 from datetime import datetime, timedelta
 import json
 from collections import defaultdict
@@ -219,55 +220,93 @@ def on_leave(data):
 def handle_message(data):
     """Event handler for new messages."""
     if not current_user.is_authenticated:
+        emit('error', {'message': 'You must be logged in to send messages'}, room=request.sid)
         return
         
     room_id = data.get('room_id')
-    content = data.get('content')
+    content = data.get('content', '').strip()
     is_question = data.get('is_question', False)
     points_offered = data.get('points_offered', 0)
     
     if not room_id or not content:
+        emit('error', {'message': 'Invalid message data'}, room=request.sid)
         return
         
     try:
-        # Create message
+        # Check message content first - STRICT MODERATION
+        is_appropriate, warning = check_message(content)
+        if not is_appropriate:
+            print(f"Blocked inappropriate message from {current_user.username}: {content}")
+            emit('error', {'message': warning}, room=request.sid)
+            return
+            
+        # Points check for questions
+        if is_question and points_offered > 0:
+            if not current_user.can_afford_question(points_offered):
+                emit('error', {'message': 'Not enough points to ask this question'}, room=request.sid)
+                return
+                
+            if not current_user.deduct_points(points_offered):
+                emit('error', {'message': 'Failed to deduct points'}, room=request.sid)
+                return
+        
+        # Create and save message
         message = Message(
             content=content,
             author=current_user,
             room_id=room_id,
             is_question=is_question,
-            points_offered=points_offered
+            points_offered=points_offered if is_question else 0
         )
         
         db.session.add(message)
         db.session.commit()
         
         # Broadcast the message
-        emit('message', message.to_dict(), room=room_id)
+        emit('message', {
+            'id': message.id,
+            'content': message.content,
+            'username': current_user.username,
+            'timestamp': message.timestamp.strftime('%H:%M'),
+            'is_question': message.is_question,
+            'points_offered': message.points_offered,
+            'user_id': current_user.id,
+            'parent_id': message.parent_id,
+            'accepted_answer_id': message.accepted_answer_id if hasattr(message, 'accepted_answer_id') else None
+        }, room=room_id)
+        
     except Exception as e:
-        print("Error saving message:", str(e))
+        print(f"Error in handle_message: {str(e)}")
         db.session.rollback()
-        emit('error', {'message': 'Error saving message: ' + str(e)})
+        emit('error', {'message': 'Error saving message'}, room=request.sid)
 
 @socketio.on('answer')
 def handle_answer(data):
     """Event handler for answers to questions."""
     if not current_user.is_authenticated:
+        emit('error', {'message': 'You must be logged in to answer questions'}, room=request.sid)
         return
         
     room_id = data.get('room_id')
-    content = data.get('content')
+    content = data.get('content', '').strip()
     question_id = data.get('question_id')
     
     if not all([room_id, content, question_id]):
-        emit('error', {'message': 'Missing required data for answer'})
+        emit('error', {'message': 'Missing required data for answer'}, room=request.sid)
         return
         
     try:
+        # Check answer content first - STRICT MODERATION
+        is_appropriate, warning = check_message(content)
+        if not is_appropriate:
+            print(f"Blocked inappropriate answer from {current_user.username}: {content}")
+            emit('error', {'message': warning}, room=request.sid)
+            return
+            
         # Get the question being answered
         question = Message.query.get(question_id)
         if not question or not question.is_question:
-            emit('error', {'message': 'Invalid question ID'})
+            emit('error', {'message': 'Invalid question ID'}, room=request.sid)
             return
             
         # Create answer message
@@ -283,59 +322,18 @@ def handle_answer(data):
         db.session.commit()
         
         # Broadcast the answer
-        answer_data = answer.to_dict()
-        answer_data['parent_id'] = question_id
-        emit('message', answer_data, room=room_id)
-    except Exception as e:
-        print("Error saving answer:", str(e))
-        db.session.rollback()
-        emit('error', {'message': 'Error saving answer: ' + str(e)})
-
-@socketio.on('accept_answer')
-def handle_accept_answer(data):
-    """Event handler for accepting answers."""
-    if not current_user.is_authenticated:
-        return
-        
-    answer_id = data.get('answer_id')
-    if not answer_id:
-        emit('error', {'message': 'Missing answer ID'})
-        return
-        
-    try:
-        # Get the answer and its question
-        answer = Message.query.get(answer_id)
-        if not answer or not answer.parent_id:
-            emit('error', {'message': 'Invalid answer'})
-            return
-            
-        question = Message.query.get(answer.parent_id)
-        if not question or question.author_id != current_user.id:
-            emit('error', {'message': 'You can only accept answers to your own questions'})
-            return
-            
-        if question.accepted_answer_id:
-            emit('error', {'message': 'This question already has an accepted answer'})
-            return
-            
-        # Accept the answer and transfer points
-        question.accepted_answer_id = answer_id
-        points_transferred = question.points_offered
-        
-        # Transfer points from question author to answer author
-        question.author.points -= points_transferred
-        answer.author.points += points_transferred
-        
-        db.session.commit()
-        
-        # Notify clients
-        emit('answer_accepted', {
-            'answer_id': answer_id,
-            'question_id': question.id,
-            'points_transferred': points_transferred
-        }, room=question.room_id)
+        emit('message', {
+            'id': answer.id,
+            'content': answer.content,
+            'username': current_user.username,
+            'timestamp': answer.timestamp.strftime('%H:%M'),
+            'is_answer': True,
+            'parent_id': question_id,
+            'user_id': current_user.id,
+            'room_id': room_id
+        }, room=room_id)
         
     except Exception as e:
-        print("Error accepting answer:", str(e))
+        print(f"Error in handle_answer: {str(e)}")
         db.session.rollback()
-        emit('error', {'message': 'Error accepting answer: ' + str(e)}) 
+        emit('error', {'message': 'Error saving answer'}, room=request.sid) 

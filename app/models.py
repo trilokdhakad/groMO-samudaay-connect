@@ -277,6 +277,7 @@ class Message(db.Model):
     
     # Message type and relationship fields
     is_question = db.Column(db.Boolean, default=False)
+    is_answer = db.Column(db.Boolean, default=False)  # New field to track answers
     points_offered = db.Column(db.Integer, default=0)  # Points offered for answering
     parent_id = db.Column(db.Integer, db.ForeignKey('message.id', name='fk_message_parent', ondelete='SET NULL'), nullable=True)
     answers = db.relationship('Message', 

@@ -2,133 +2,254 @@ from flask import request
 from flask_login import current_user
 from flask_socketio import emit, join_room, leave_room
 from app import socketio, db
-from app.models import Message, Room, User, Rating
-from app.text_analyzer import TextAnalyzer
+from app.models import Message, Room, User, Rating, RoomMembership
+from app.moderation import check_message
+from datetime import datetime
+import json
+import os
+
+def load_vulgar_words():
+    """Load vulgar words directly from JSON file."""
+    try:
+        file_path = os.path.join(os.path.dirname(__file__), 'static', 'data', 'vulgar_words.json')
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return set(json.load(f))
+    except Exception as e:
+        print(f"Error loading vulgar words: {str(e)}")
+        return set()
+
+def contains_vulgar_words(content):
+    """Check if content contains any vulgar words."""
+    vulgar_words = load_vulgar_words()
+    if not vulgar_words:
+        return False
+        
+    # Convert content to lowercase and split into words
+    words = content.lower().split()
+    
+    # Strip punctuation from each word
+    words = [word.strip('.,!?()[]{}":;') for word in words]
+    
+    # Check if any word matches vulgar words
+    return any(word in vulgar_words for word in words)
 
 @socketio.on('connect')
 def handle_connect():
+    """Handle client connection"""
     if not current_user.is_authenticated:
-        return False
-    print(f'Client connected: {current_user.username}')
+        return False  # reject connection if user not authenticated
+    print(f"Client connected: {current_user.username}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    if not current_user.is_authenticated:
-        return
-    print(f'Client disconnected: {current_user.username}')
+    """Handle client disconnection"""
+    if current_user.is_authenticated:
+        print(f"Client disconnected: {current_user.username}")
 
 @socketio.on('join')
 def handle_join(data):
+    """Handle user joining a room"""
     if not current_user.is_authenticated:
         return
-    
+        
     room_id = data.get('room_id')
     if not room_id:
         return
+        
+    join_room(str(room_id))
+    print(f"User {current_user.username} joined room {room_id}")
     
-    room = Room.query.get(room_id)
-    if not room:
-        return
-    
-    join_room(room_id)
-    membership = room.get_member(current_user)
-    if membership:
+    # Update room membership
+    try:
+        membership = RoomMembership.query.filter_by(
+            user_id=current_user.id,
+            room_id=room_id
+        ).first()
+        
+        if not membership:
+            membership = RoomMembership(user=current_user, room_id=room_id)
+            db.session.add(membership)
+            
         membership.is_active = True
+        membership.last_active = datetime.utcnow()
         db.session.commit()
-    
-    active_members = [m.user.username for m in room.memberships if m.is_active]
-    emit('user_joined', {
-        'username': current_user.username,
-        'active_members': active_members
-    }, room=room_id)
+        
+        # Notify room
+        emit('user_joined', {
+            'username': current_user.username,
+            'user_id': current_user.id
+        }, room=str(room_id))
+    except Exception as e:
+        print(f"Error in handle_join: {str(e)}")
+        db.session.rollback()
 
 @socketio.on('leave')
 def handle_leave(data):
+    """Handle user leaving a room"""
     if not current_user.is_authenticated:
         return
-    
+        
     room_id = data.get('room_id')
-    if not room_id:
-        return
-    
-    room = Room.query.get(room_id)
-    if not room:
-        return
-    
-    leave_room(room_id)
-    membership = room.get_member(current_user)
-    if membership:
-        membership.is_active = False
-        db.session.commit()
-    
-    active_members = [m.user.username for m in room.memberships if m.is_active]
-    emit('user_left', {
-        'username': current_user.username,
-        'active_members': active_members
-    }, room=room_id)
+    if room_id:
+        leave_room(str(room_id))
+        print(f"User {current_user.username} left room {room_id}")
+        
+        try:
+            # Update membership
+            membership = RoomMembership.query.filter_by(
+                user_id=current_user.id,
+                room_id=room_id
+            ).first()
+            
+            if membership:
+                membership.is_active = False
+                membership.last_active = datetime.utcnow()
+                db.session.commit()
+                
+                # Notify room
+                emit('user_left', {
+                    'username': current_user.username,
+                    'user_id': current_user.id
+                }, room=str(room_id))
+        except Exception as e:
+            print(f"Error in handle_leave: {str(e)}")
+            db.session.rollback()
 
 @socketio.on('message')
 def handle_message(data):
+    """Handle new messages and questions"""
     if not current_user.is_authenticated:
+        emit('error', {'message': 'You must be logged in to send messages'}, room=request.sid)
         return
-    
+        
     room_id = data.get('room_id')
-    content = data.get('content')
+    content = data.get('content', '').strip()
     is_question = data.get('is_question', False)
-    points_offered = data.get('points_offered', 0)
-    parent_id = data.get('parent_id')
+    points_offered = int(data.get('points_offered', 0))
     
     if not room_id or not content:
+        emit('error', {'message': 'Invalid message data'}, room=request.sid)
         return
     
-    room = Room.query.get(room_id)
-    if not room:
+    # STRICT WORD CHECK - Do this before any other processing
+    if contains_vulgar_words(content):
+        print(f"BLOCKED INAPPROPRIATE MESSAGE from {current_user.username} in room {room_id}: {content}")
+        emit('error', {'message': 'Your message contains inappropriate language and cannot be sent.'}, room=request.sid)
         return
-    
-    # If this is an answer, check if the question is closed
-    if parent_id:
-        parent_message = Message.query.get(parent_id)
-        if not parent_message:
-            emit('error', {'message': 'Invalid question'})
+        
+    try:
+        # STRICT MODERATION CHECK
+        is_appropriate, warning = check_message(content)
+        if not is_appropriate:
+            print(f"BLOCKED MESSAGE from {current_user.username} in room {room_id}: {content}")
+            emit('error', {'message': warning}, room=request.sid)
             return
-        if parent_message.is_closed():
-            emit('error', {'message': 'This question already has an accepted answer'})
+            
+        # Points check for questions
+        if is_question and points_offered > 0:
+            if not current_user.can_afford_question(points_offered):
+                emit('error', {'message': 'Not enough points to ask this question'}, room=request.sid)
+                return
+                
+            if not current_user.deduct_points(points_offered):
+                emit('error', {'message': 'Failed to deduct points'}, room=request.sid)
+                return
+        
+        # Create and save message
+        message = Message(
+            content=content,
+            author=current_user,
+            room_id=room_id,
+            is_question=is_question,
+            points_offered=points_offered if is_question else 0
+        )
+        
+        db.session.add(message)
+        db.session.commit()
+        print(f"Message saved from {current_user.username} in room {room_id}")
+        
+        # Broadcast the message
+        emit('message', {
+            'id': message.id,
+            'content': message.content,
+            'username': current_user.username,
+            'timestamp': message.timestamp.strftime('%H:%M'),
+            'is_question': message.is_question,
+            'points_offered': message.points_offered,
+            'user_id': current_user.id,
+            'parent_id': message.parent_id,
+            'accepted_answer_id': message.accepted_answer_id if hasattr(message, 'accepted_answer_id') else None
+        }, room=str(room_id))
+        
+    except Exception as e:
+        print(f"Error in handle_message: {str(e)}")
+        db.session.rollback()
+        emit('error', {'message': 'Error saving message'}, room=request.sid)
+
+@socketio.on('answer')
+def handle_answer(data):
+    """Handle answers to questions"""
+    if not current_user.is_authenticated:
+        emit('error', {'message': 'You must be logged in to answer questions'}, room=request.sid)
+        return
+        
+    room_id = data.get('room_id')
+    content = data.get('content', '').strip()
+    question_id = data.get('question_id')
+    
+    if not all([room_id, content, question_id]):
+        emit('error', {'message': 'Missing required data for answer'}, room=request.sid)
+        return
+        
+    # STRICT WORD CHECK - Do this before any other processing
+    if contains_vulgar_words(content):
+        print(f"BLOCKED INAPPROPRIATE ANSWER from {current_user.username} in room {room_id}: {content}")
+        emit('error', {'message': 'Your answer contains inappropriate language and cannot be sent.'}, room=request.sid)
+        return
+        
+    try:
+        # STRICT MODERATION CHECK
+        is_appropriate, warning = check_message(content)
+        if not is_appropriate:
+            print(f"BLOCKED ANSWER from {current_user.username} in room {room_id}: {content}")
+            emit('error', {'message': warning}, room=request.sid)
             return
-    
-    # Check if user has enough points for the question
-    if is_question and points_offered > 0:
-        if not current_user.can_afford_question(points_offered):
-            emit('error', {
-                'message': 'Not enough points to offer for this question'
-            })
+            
+        # Get the question being answered
+        question = Message.query.get(question_id)
+        if not question or not question.is_question:
+            emit('error', {'message': 'Invalid question ID'}, room=request.sid)
             return
-        current_user.deduct_points(points_offered)
-    
-    # Create and analyze message
-    message = Message(
-        content=content,
-        author=current_user,
-        room_id=room_id,
-        is_question=is_question,
-        points_offered=points_offered,
-        parent_id=parent_id
-    )
-    
-    # Analyze message content
-    analyzer = TextAnalyzer()
-    message.update_analysis(analyzer)
-    
-    db.session.add(message)
-    db.session.commit()
-    
-    # Prepare response data
-    response_data = message.to_dict()
-    
-    # If this is an answer, also emit to parent question's thread
-    if parent_id:
-        emit('new_answer', response_data, room=f'question_{parent_id}')
-    
-    emit('message', response_data, room=room_id)
+            
+        # Create answer message
+        answer = Message(
+            content=content,
+            author=current_user,
+            room_id=room_id,
+            parent_id=question_id,
+            is_answer=True
+        )
+        
+        db.session.add(answer)
+        db.session.commit()
+        print(f"Answer saved from {current_user.username} in room {room_id}")
+        
+        # Broadcast the answer
+        emit('message', {
+            'id': answer.id,
+            'content': answer.content,
+            'username': current_user.username,
+            'timestamp': answer.timestamp.strftime('%H:%M'),
+            'is_answer': True,
+            'parent_id': question_id,
+            'user_id': current_user.id,
+            'room_id': room_id
+        }, room=str(room_id))
+        
+    except Exception as e:
+        print(f"Error in handle_answer: {str(e)}")
+        db.session.rollback()
+        emit('error', {'message': 'Error saving answer'}, room=request.sid)
 
 @socketio.on('start_answer')
 def handle_start_answer(data):
@@ -318,31 +439,53 @@ def handle_accept_answer(data):
     
     answer_id = data.get('answer_id')
     if not answer_id:
+        emit('error', {'message': 'Missing answer ID'}, room=request.sid)
         return
     
     print(f"[DEBUG] Accepting answer {answer_id}")
     
-    answer = Message.query.get(answer_id)
-    if not answer or not answer.parent_id:
-        emit('error', {'message': 'Invalid answer'})
-        return
-    
-    question = Message.query.get(answer.parent_id)
-    if not question or question.user_id != current_user.id:
-        print(f"[DEBUG] Permission denied. Question user: {question.user_id}, Current user: {current_user.id}")
-        emit('error', {'message': 'Only the question asker can select the best answer'})
-        return
-    
-    if question.accept_answer(answer_id, db.session):
-        print(f"[DEBUG] Successfully accepted answer {answer_id} for question {question.id}")
-        # Emit to both the room and the question thread
-        response_data = {
-            'answer_id': answer_id,
-            'question_id': question.id,
-            'points_transferred': question.points_offered
-        }
-        emit('answer_accepted', response_data, room=question.room_id)
-        emit('answer_accepted', response_data, room=f'question_{question.id}')
-    else:
-        print("[DEBUG] Failed to accept answer")
-        emit('error', {'message': 'Failed to accept answer'}) 
+    try:
+        answer = Message.query.get(answer_id)
+        if not answer or not answer.parent_id:
+            emit('error', {'message': 'Invalid answer'}, room=request.sid)
+            return
+        
+        question = Message.query.get(answer.parent_id)
+        if not question:
+            emit('error', {'message': 'Question not found'}, room=request.sid)
+            return
+            
+        if question.user_id != current_user.id:
+            print(f"[DEBUG] Permission denied. Question user: {question.user_id}, Current user: {current_user.id}")
+            emit('error', {'message': 'Only the question asker can select the best answer'}, room=request.sid)
+            return
+        
+        if question.is_closed():
+            emit('error', {'message': 'This question already has an accepted answer'}, room=request.sid)
+            return
+        
+        success = question.accept_answer(answer_id, db.session)
+        if success:
+            print(f"[DEBUG] Successfully accepted answer {answer_id} for question {question.id}")
+            # Emit to both the room and the question thread
+            response_data = {
+                'answer_id': answer_id,
+                'question_id': question.id,
+                'points_transferred': question.points_offered
+            }
+            emit('answer_accepted', response_data, room=str(question.room_id))
+            emit('answer_accepted', response_data, room=f'question_{question.id}')
+            
+            # Notify the answer author about points received
+            if question.points_offered > 0:
+                emit('points_update', {
+                    'points': answer.author.points
+                }, room=str(answer.author.id))
+        else:
+            print("[DEBUG] Failed to accept answer")
+            emit('error', {'message': 'Failed to accept answer'}, room=request.sid)
+            
+    except Exception as e:
+        print(f"[DEBUG] Error accepting answer: {str(e)}")
+        db.session.rollback()
+        emit('error', {'message': f'Error accepting answer: {str(e)}'}, room=request.sid) 

@@ -3,7 +3,8 @@ from flask_login import login_required, current_user
 from app import app, db, socketio
 from app.models import User, Room, Message, Rating
 from app.recommendations import get_similar_users, get_recommended_rooms, update_user_profile, update_room_profile
-from flask_socketio import emit
+from flask_socketio import emit, join_room
+from app.moderation import check_message
 
 @app.route('/')
 @app.route('/index')
@@ -29,6 +30,12 @@ def handle_message(data):
     room_id = data.get('room_id')
     is_question = data.get('is_question', False)
     points_offered = int(data.get('points_offered', 0))
+    
+    # Check message content first
+    is_appropriate, warning = check_message(content)
+    if not is_appropriate:
+        emit('error', {'message': warning}, room=request.sid)
+        return
     
     if is_question:
         # Check if user has enough points
