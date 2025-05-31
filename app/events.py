@@ -74,10 +74,15 @@ def handle_join(data):
         membership.last_active = datetime.utcnow()
         db.session.commit()
         
+        # Get active members
+        room = Room.query.get(room_id)
+        active_members = [m.user.username for m in room.memberships.filter_by(is_active=True).all()] if room else []
+        
         # Notify room
         emit('user_joined', {
             'username': current_user.username,
-            'user_id': current_user.id
+            'user_id': current_user.id,
+            'active_members': active_members
         }, room=str(room_id))
     except Exception as e:
         print(f"Error in handle_join: {str(e)}")
@@ -106,10 +111,15 @@ def handle_leave(data):
                 membership.last_active = datetime.utcnow()
                 db.session.commit()
                 
+                # Get active members after user left
+                room = Room.query.get(room_id)
+                active_members = [m.user.username for m in room.memberships.filter_by(is_active=True).all()] if room else []
+                
                 # Notify room
                 emit('user_left', {
                     'username': current_user.username,
-                    'user_id': current_user.id
+                    'user_id': current_user.id,
+                    'active_members': active_members
                 }, room=str(room_id))
         except Exception as e:
             print(f"Error in handle_leave: {str(e)}")

@@ -9,9 +9,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize Socket.IO if we're on a chat page
     if (document.querySelector('.chat-container')) {
         console.log('Initializing chat...');
-        initializeSocket();
-        initializeAutoRefresh();
-        initializeQASystem();
+        try {
+            socket = io({
+                transports: ['websocket'],
+                upgrade: false,
+                reconnection: true,
+                reconnectionAttempts: 5,
+                autoConnect: true
+            });
+
+            socket.on('connect', () => {
+                console.log('Connected to server');
+                showToast('Connected to chat server', 'success');
+                
+                // Only initialize other features after socket is connected
+                initializeSocket();
+                initializeAutoRefresh();
+                initializeQASystem();
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Connection error:', error);
+                showToast('Failed to connect to chat server. Retrying...', 'error');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from server');
+                showToast('Disconnected from chat server. Attempting to reconnect...', 'warning');
+            });
+        } catch (error) {
+            console.error('Error initializing socket:', error);
+            showToast('Failed to initialize chat. Please refresh the page.', 'error');
+        }
     }
 
     // Initialize Bootstrap tooltips
@@ -207,125 +236,100 @@ function handleRating(messageId, rating) {
 }
 
 function initializeSocket() {
-    try {
-        if (!socket) {
-            console.log('Creating new Socket.IO connection...');
-            socket = io({
-                transports: ['websocket'],
-                upgrade: false,
-                reconnection: true,
-                reconnectionAttempts: 5
-            });
-            
+    if (!socket) {
+        console.error('Socket not initialized');
+        return;
+    }
+
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+    const roomId = messageForm ? messageForm.dataset.roomId : null;
+
+    if (messageForm && messageInput && roomId) {
+        console.log('Setting up message form handlers for room:', roomId);
+        
+        // Join room
+        console.log('Joining room:', roomId);
+        socket.emit('join', { room_id: roomId });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            console.log('Leaving room:', roomId);
+            socket.emit('leave', { room_id: roomId });
+        });
+    }
+
+    // Socket event handlers
+    socket.on('message', (data) => {
+        console.log('Received message:', data);
+        appendMessage(data);
+    });
+
+    socket.on('answer_accepted', (data) => {
+        console.log('Answer accepted:', data);
+        const answerElement = document.querySelector(`.message[data-message-id="${data.answer_id}"]`);
+        if (answerElement) {
+            answerElement.classList.add('accepted-answer');
+            showToast(`Answer accepted! ${data.points_transferred} points transferred.`, 'success');
+        }
+    });
+
+    socket.on('rating_updated', (data) => {
+        console.log('Rating updated:', data);
+        showToast(`Rating submitted successfully! New rating: ${data.new_rating}`, 'success');
+    });
+
+    socket.on('user_joined', (data) => {
+        console.log('User joined:', data);
+        showToast(`${data.username} joined the room`, 'info');
+        updateActiveMembers(data.active_members);
+    });
+
+    socket.on('user_left', (data) => {
+        console.log('User left:', data);
+        showToast(`${data.username} left the room`, 'info');
+        updateActiveMembers(data.active_members);
+    });
+
+    socket.on('error', (data) => {
+        console.error('Server error:', data);
+        showToast(data.message || 'An error occurred', 'error');
+        
+        // Re-enable form if points deduction failed
+        if (data.message && data.message.includes('points')) {
             const messageForm = document.getElementById('message-form');
-            const messageInput = document.getElementById('message-input');
-            const roomId = messageForm ? messageForm.dataset.roomId : null;
+            const submitButton = messageForm.querySelector('button[type="submit"]');
+            submitButton.disabled = false;
+        }
+    });
 
-            if (messageForm && messageInput && roomId) {
-                console.log('Setting up message form handlers for room:', roomId);
-                
-                // Join room when form is available
-                console.log('Joining room:', roomId);
-                socket.emit('join', { room_id: roomId });
+    socket.on('points_update', (data) => {
+        console.log('Points updated:', data);
+        updateUserPoints(data.points);
+    });
 
-                // Handle page unload
-                window.addEventListener('beforeunload', function() {
-                    console.log('Leaving room:', roomId);
-                    socket.emit('leave', { room_id: roomId });
-                });
-            }
-
-            // Socket event handlers
-            socket.on('connect', () => {
-                console.log('Connected to server');
-                showToast('Connected to chat server', 'success');
-            });
-
-            socket.on('connect_error', (error) => {
-                console.error('Connection error:', error);
-                showToast('Failed to connect to chat server', 'error');
-            });
-
-            socket.on('disconnect', () => {
-                console.log('Disconnected from server');
-                showToast('Disconnected from chat server', 'warning');
-            });
-
-            socket.on('message', (data) => {
-                console.log('Received message:', data);
-                appendMessage(data);
-            });
-
-            socket.on('answer_accepted', (data) => {
-                console.log('Answer accepted:', data);
-                const answerElement = document.querySelector(`.message[data-message-id="${data.answer_id}"]`);
-                if (answerElement) {
-                    answerElement.classList.add('accepted-answer');
-                    showToast(`Answer accepted! ${data.points_transferred} points transferred.`, 'success');
-                }
-            });
-
-            socket.on('rating_updated', (data) => {
-                console.log('Rating updated:', data);
-                showToast(`Rating submitted successfully! New rating: ${data.new_rating}`, 'success');
-            });
-
-            socket.on('user_joined', (data) => {
-                console.log('User joined:', data);
-                showToast(`${data.username} joined the room`, 'info');
-                updateActiveMembers(data.active_members);
-            });
-
-            socket.on('user_left', (data) => {
-                console.log('User left:', data);
-                showToast(`${data.username} left the room`, 'info');
-                updateActiveMembers(data.active_members);
-            });
-
-            socket.on('error', (data) => {
-                console.error('Server error:', data);
-                showToast(data.message || 'An error occurred', 'error');
-                
-                // Re-enable form if points deduction failed
-                if (data.message.includes('points')) {
-                    const messageForm = document.getElementById('message-form');
-                    const submitButton = messageForm.querySelector('button[type="submit"]');
-                    submitButton.disabled = false;
-                }
-            });
-
-            socket.on('points_update', (data) => {
-                console.log('Points updated:', data);
-                updateUserPoints(data.points);
-            });
-
-            // Handle vote button clicks
-            document.addEventListener('click', function(e) {
-                if (e.target.closest('.vote-btn')) {
-                    const btn = e.target.closest('.vote-btn');
-                    const messageId = btn.closest('.vote-buttons').dataset.messageId;
-                    const voteType = btn.dataset.voteType;
-                    
-                    socket.emit('vote_message', {
-                        message_id: messageId,
-                        vote_type: voteType
-                    });
-                }
-            });
-
-            // Handle vote updates from server
-            socket.on('vote_updated', function(data) {
-                const messageElement = document.querySelector(`.vote-buttons[data-message-id="${data.message_id}"]`);
-                if (messageElement) {
-                    messageElement.querySelector('.likes-count').textContent = `Upvote (${data.likes || 0})`;
-                    messageElement.querySelector('.dislikes-count').textContent = `Downvote (${data.dislikes || 0})`;
-                }
+    // Handle vote button clicks
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.vote-btn')) {
+            const btn = e.target.closest('.vote-btn');
+            const messageId = btn.closest('.vote-buttons').dataset.messageId;
+            const voteType = btn.dataset.voteType;
+            
+            socket.emit('vote_message', {
+                message_id: messageId,
+                vote_type: voteType
             });
         }
-    } catch (error) {
-        console.error('Error initializing socket:', error);
-        showToast('Failed to initialize chat', 'error');
-    }
+    });
+
+    // Handle vote updates from server
+    socket.on('vote_updated', function(data) {
+        const messageElement = document.querySelector(`.vote-buttons[data-message-id="${data.message_id}"]`);
+        if (messageElement) {
+            messageElement.querySelector('.likes-count').textContent = `Upvote (${data.likes || 0})`;
+            messageElement.querySelector('.dislikes-count').textContent = `Downvote (${data.dislikes || 0})`;
+        }
+    });
 }
 
 function initializeAutoRefresh() {
@@ -422,30 +426,10 @@ function appendMessage(data) {
         const metadata = document.createElement('div');
         metadata.className = 'message-metadata';
         
-        const intentEmoji = document.createElement('span');
-        intentEmoji.className = 'message-emoji';
-        intentEmoji.textContent = data.intent_emoji || '💬';
-        
-        const intentBadge = document.createElement('span');
-        intentBadge.className = 'intent-badge';
-        intentBadge.textContent = data.intent || 'other';
-        
-        const emotionEmoji = document.createElement('span');
-        emotionEmoji.className = 'message-emoji';
-        emotionEmoji.textContent = data.emotion_emoji || '😐';
-        
-        const emotionBadge = document.createElement('span');
-        emotionBadge.className = `emotion-badge emotion-${data.primary_emotion || 'neutral'}`;
-        emotionBadge.textContent = data.primary_emotion || 'neutral';
-        
         const timestamp = document.createElement('small');
         timestamp.className = 'text-muted float-end';
         timestamp.textContent = data.timestamp;
         
-        metadata.appendChild(intentEmoji);
-        metadata.appendChild(intentBadge);
-        metadata.appendChild(emotionEmoji);
-        metadata.appendChild(emotionBadge);
         metadata.appendChild(timestamp);
         messageContent.appendChild(metadata);
         
@@ -489,7 +473,9 @@ function updateActiveMembers(members) {
     try {
         const container = document.getElementById('active-members');
         if (container) {
-            container.innerHTML = members.map(member => `
+            // Handle case where members is undefined or null
+            const membersList = Array.isArray(members) ? members : [];
+            container.innerHTML = membersList.map(member => `
                 <span class="badge bg-success me-1">${member}</span>
             `).join('');
         }
@@ -591,6 +577,35 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(later, wait);
     };
+}
+
+function formatTime(date) {
+    if (!(date instanceof Date)) {
+        date = new Date(date);
+    }
+    
+    const options = {
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    
+    return date.toLocaleString('en-US', options);
+}
+
+function formatDate(date) {
+    if (!(date instanceof Date)) {
+        date = new Date(date);
+    }
+    
+    const options = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    
+    return date.toLocaleString('en-US', options);
 }
 
 // Export functions for use in other scripts

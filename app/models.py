@@ -175,6 +175,11 @@ class Room(db.Model):
     language = db.Column(db.String(50))
     is_private = db.Column(db.Boolean, default=False)
     
+    # Sales intent tracking
+    current_intent = db.Column(db.String(50), default='exploring')
+    intent_weights = db.Column(db.Text)  # JSON string of intent weights
+    last_intent_update = db.Column(db.DateTime)
+    
     # Enhanced topic modeling fields
     topic_data = db.Column(db.Text)  # JSON string of topic analysis results
     topic_hierarchy = db.Column(db.Text)  # JSON string of hierarchical topic structure
@@ -249,6 +254,22 @@ class Room(db.Model):
             
             db.session.commit()
 
+    def get_intent_distribution(self):
+        """Get the current intent distribution as a dictionary"""
+        if self.intent_weights:
+            try:
+                return json.loads(self.intent_weights)
+            except:
+                return {'exploring': 1.0}
+        return {'exploring': 1.0}
+        
+    def update_intent(self, intent, weights):
+        """Update the room's current intent and weights"""
+        self.current_intent = intent
+        self.intent_weights = json.dumps(weights)
+        self.last_intent_update = datetime.utcnow()
+        db.session.commit()
+
 class RoomTopic(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
@@ -319,6 +340,9 @@ class Message(db.Model):
     likes = db.Column(db.Integer, default=0)
     dislikes = db.Column(db.Integer, default=0)
     voted_users = db.relationship('MessageVote', backref='message', lazy='dynamic')
+    
+    # Sales intent field
+    sales_intent = db.Column(db.String(20), default='exploring')  # Default to exploring
 
     def is_closed(self):
         """Check if the question is closed (has accepted answer)"""
@@ -378,7 +402,8 @@ class Message(db.Model):
             'primary_emotion': self.primary_emotion,
             'emotion_emoji': self.get_emotion_emoji(),
             'intent': self.intent,
-            'intent_emoji': self.get_intent_emoji()
+            'intent_emoji': self.get_intent_emoji(),
+            'sales_intent': self.sales_intent
         }
 
     def get_average_rating(self):
