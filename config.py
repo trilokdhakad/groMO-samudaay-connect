@@ -7,8 +7,8 @@ load_dotenv(os.path.join(basedir, '.env'))
 
 class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'you-will-never-guess'
-    # Escape special characters in the password
-    password = quote_plus('Trilok1234@1')
+    # Database configuration with the correct password
+    password = quote_plus('Trilok1234#1')  # URL encode the password to handle special characters
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
         f'mysql+pymysql://root:{password}@localhost/samudaay_connect'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
