@@ -3,40 +3,198 @@
 {% block title %}Home - Samudaay Connect{% endblock %}
 
 {% block content %}
-<div class="jumbotron bg-light p-5 rounded">
-    <h1 class="display-4">Welcome to Samudaay Connect</h1>
-    <p class="lead">Connect with your community in real-time through intelligent chat rooms.</p>
-    <hr class="my-4">
-    <p>Join chat rooms, discover topics of interest, and engage in meaningful conversations.</p>
-    <a class="btn btn-primary btn-lg" href="{{ url_for('chat.rooms') }}">
-        <i class="fas fa-comments me-2"></i>Browse Chat Rooms
-    </a>
-</div>
+<div class="container">
+    <div class="jumbotron bg-light p-5 rounded mb-4">
+        <h1 class="display-4">Welcome to Samudaay Connect</h1>
+        <p class="lead">Connect with your community in real-time through intelligent chat rooms.</p>
+        <hr class="my-4">
+        <p>Join chat rooms, discover topics of interest, and engage in meaningful conversations.</p>
+        <a class="btn btn-primary btn-lg" href="{{ url_for('chat.rooms') }}">
+            <i class="fas fa-comments me-2"></i>Browse Chat Rooms
+        </a>
+    </div>
 
-<div class="row mt-5">
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-brain me-2"></i>Smart Conversations</h5>
-                <p class="card-text">Our AI-powered system analyzes conversations to provide better engagement and recommendations.</p>
+    <!-- State-wise Intent Analysis Section -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">State-wise Sales Intent Analysis</h5>
+            <button class="btn btn-light btn-sm" onclick="refreshAnalysis()">
+                <i class="fas fa-sync-alt"></i> Refresh
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- State Selection Dropdown -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <select id="stateSelect" class="form-select" onchange="loadStateAnalysis()">
+                        <option value="">Select a State</option>
+                        {% for state in states %}
+                        <option value="{{ state }}">{{ state }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product-wise Analysis -->
+            <div id="productAnalysis" class="row">
+                <!-- Will be populated by JavaScript -->
             </div>
         </div>
     </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-users me-2"></i>Community Focus</h5>
-                <p class="card-text">Connect with people who share your interests and build meaningful relationships.</p>
+
+    <!-- Features Section -->
+    <div class="row mt-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-brain me-2"></i>Smart Conversations</h5>
+                    <p class="card-text">Our AI-powered system analyzes conversations to provide better engagement and recommendations.</p>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card h-100">
-            <div class="card-body">
-                <h5 class="card-title"><i class="fas fa-shield-alt me-2"></i>Safe & Secure</h5>
-                <p class="card-text">Your privacy and security are our top priorities. All conversations are protected.</p>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-users me-2"></i>Community Focus</h5>
+                    <p class="card-text">Connect with people who share your interests and build meaningful relationships.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="fas fa-shield-alt me-2"></i>Safe & Secure</h5>
+                    <p class="card-text">Your privacy and security are our top priorities. All conversations are protected.</p>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Function to load analysis for selected state
+function loadStateAnalysis() {
+    const state = document.getElementById('stateSelect').value;
+    if (!state) return;
+
+    fetch(`/api/state_analysis/${encodeURIComponent(state)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayProductAnalysis(data.data);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to load state analysis');
+        });
+}
+
+// Function to display product analysis
+function displayProductAnalysis(productData) {
+    const container = document.getElementById('productAnalysis');
+    container.innerHTML = ''; // Clear existing content
+
+    for (const [product, data] of Object.entries(productData)) {
+        const productCard = document.createElement('div');
+        productCard.className = 'col-md-6 mb-4';
+        
+        const intentBadgeClass = `bg-${intentColors[data.current_intent] || 'primary'}`;
+        const formattedIntent = data.current_intent.replace('_', ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+        
+        let intentDistributionHtml = '';
+        const intents = Object.entries(data.intent_distribution);
+        
+        // Only show distribution if there's more than one intent or if the single intent is not 100%
+        if (intents.length > 0 && 
+            !(intents.length === 1 && Math.abs(intents[0][1] - 1.0) < 0.001)) {
+            intentDistributionHtml = intents
+                .map(([intent, percentage]) => {
+                    const formattedIntentName = intent.replace('_', ' ')
+                        .split(' ')
+                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                        .join(' ');
+                    return `
+                        <div class="mb-2">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small>${formattedIntentName}</small>
+                                <small class="text-muted">${(percentage * 100).toFixed(1)}%</small>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-${intentColors[intent] || 'primary'}" 
+                                     role="progressbar" 
+                                     style="width: ${percentage * 100}%" 
+                                     aria-valuenow="${percentage * 100}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                })
+                .join('');
+        }
+        
+        productCard.innerHTML = `
+            <div class="card h-100">
+                <div class="card-header">
+                    <h6 class="mb-0">${product}</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Current Intent:</span>
+                            <span class="badge ${intentBadgeClass}">${formattedIntent}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted">Active Rooms:</span>
+                            <span class="badge bg-success">${data.active_rooms}/${data.total_rooms}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="intent-distribution">
+                        ${intentDistributionHtml}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        container.appendChild(productCard);
+    }
+}
+
+// Function to refresh the analysis
+function refreshAnalysis() {
+    const state = document.getElementById('stateSelect').value;
+    if (state) {
+        loadStateAnalysis();
+    }
+}
+
+// Store intent colors for JavaScript use
+const intentColors = {{ intent_colors|tojson }};
+
+// Set default state and load analysis on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const stateSelect = document.getElementById('stateSelect');
+    const userState = {{ user_state|tojson }};
+    if (userState) {
+        stateSelect.value = userState;
+        loadStateAnalysis();
+    }
+});
+
+// Auto-refresh every 5 minutes if a state is selected
+setInterval(() => {
+    const state = document.getElementById('stateSelect').value;
+    if (state) {
+        loadStateAnalysis();
+    }
+}, 300000);
+</script>
 {% endblock %} 

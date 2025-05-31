@@ -271,6 +271,60 @@ class Room(db.Model):
         self.last_intent_update = datetime.utcnow()
         db.session.commit()
 
+    @classmethod
+    def get_state_intent_analysis(cls):
+        """Get the current sales intent analysis for each state"""
+        states_analysis = {}
+        
+        # Get all rooms grouped by state
+        rooms = cls.query.filter(cls.name.like('% - %')).all()
+        for room in rooms:
+            state = room.name.split(' - ')[0]  # Get state from room name
+            if state not in states_analysis:
+                states_analysis[state] = {
+                    'current_intent': None,
+                    'total_rooms': 0,
+                    'active_rooms': 0,
+                    'intent_distribution': {}
+                }
+            
+            states_analysis[state]['total_rooms'] += 1
+            
+            # Check if room has recent activity (last 24 hours)
+            recent_messages = Message.query.filter_by(room_id=room.id)\
+                .filter(Message.timestamp >= datetime.utcnow() - timedelta(days=1))\
+                .count()
+            if recent_messages > 0:
+                states_analysis[state]['active_rooms'] += 1
+            
+            # Get room's current intent
+            if room.current_intent:
+                if not states_analysis[state]['current_intent']:
+                    states_analysis[state]['current_intent'] = room.current_intent
+                
+                # Add to intent distribution
+                intent_dist = room.get_intent_distribution()
+                for intent, weight in intent_dist.items():
+                    if intent not in states_analysis[state]['intent_distribution']:
+                        states_analysis[state]['intent_distribution'][intent] = 0
+                    states_analysis[state]['intent_distribution'][intent] += weight
+        
+        # Normalize intent distributions and determine dominant intent
+        for state_data in states_analysis.values():
+            if state_data['intent_distribution']:
+                total = sum(state_data['intent_distribution'].values())
+                state_data['intent_distribution'] = {
+                    intent: (weight / total) 
+                    for intent, weight in state_data['intent_distribution'].items()
+                }
+                # Set current intent to the most dominant one
+                state_data['current_intent'] = max(
+                    state_data['intent_distribution'].items(),
+                    key=lambda x: x[1]
+                )[0]
+        
+        return states_analysis
+
 class RoomTopic(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.Integer, db.ForeignKey('room.id'), nullable=False)
