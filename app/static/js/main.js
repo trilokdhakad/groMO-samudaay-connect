@@ -338,135 +338,53 @@ function initializeAutoRefresh() {
 }
 
 function appendMessage(data) {
-    const messagesContainer = document.querySelector('.chat-messages');
-    if (!messagesContainer) {
-        console.error('Messages container not found');
-        return;
+    const messagesContainer = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    
+    // Set message classes
+    let classes = ['message'];
+    if (data.is_question) {
+        classes.push('question');
+    } else if (data.parent_id) {
+        classes.push('answer');
+        if (data.is_accepted) {
+            classes.push('accepted-answer');
+        }
     }
-
-    try {
-        const messageDiv = document.createElement('div');
-        // Set proper classes for questions and answers
-        let messageClasses = ['message'];
-        if (data.is_question) messageClasses.push('question');
-        if (data.is_answer) messageClasses.push('answer');
-        if (data.user_id === currentUserId) messageClasses.push('sent');
-        else messageClasses.push('received');
-        messageDiv.className = messageClasses.join(' ');
-        messageDiv.setAttribute('data-message-id', data.id);
-        messageDiv.setAttribute('data-user-id', data.user_id);
-
-        // If this is an answer, add parent question reference and styling
-        if (data.parent_id) {
-            messageDiv.setAttribute('data-parent-id', data.parent_id);
-            messageDiv.style.marginLeft = '2rem';
-            messageDiv.style.borderLeft = '2px solid #007bff';
-            
-            // Find parent question
-            const parentQuestion = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
-            if (parentQuestion) {
-                // Insert answer after the parent question
-                let insertAfter = parentQuestion;
-                // Find the last answer to this question
-                const existingAnswers = document.querySelectorAll(`.message[data-parent-id="${data.parent_id}"]`);
-                if (existingAnswers.length > 0) {
-                    insertAfter = existingAnswers[existingAnswers.length - 1];
-                }
-                insertAfter.parentNode.insertBefore(messageDiv, insertAfter.nextSibling);
-            } else {
-                // If parent question not found, append at the end
-                messagesContainer.appendChild(messageDiv);
-            }
-        } else {
-            // Regular message or question - append at the end
-            messagesContainer.appendChild(messageDiv);
-        }
-
-        const messageContent = document.createElement('div');
-        messageContent.className = 'message-content';
-
-        // If this is an answer, show what question it's answering
-        if (data.parent_id) {
-            const answerIndicator = document.createElement('div');
-            answerIndicator.className = 'answer-indicator small text-muted mb-1';
-            const questionElement = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
-            if (questionElement) {
-                const questionText = questionElement.querySelector('.mb-0').textContent;
-                answerIndicator.innerHTML = `
-                    <i class="fas fa-reply text-primary"></i>
-                    <span>Replying to: ${questionText.substring(0, 50)}${questionText.length > 50 ? '...' : ''}</span>
-                `;
-                messageContent.appendChild(answerIndicator);
-            }
-        }
-        
-        // Header with username and points (if question)
-        const header = document.createElement('div');
-        header.className = 'd-flex justify-content-between align-items-start';
-        
-        const username = document.createElement('small');
-        username.className = 'text-muted';
-        username.textContent = data.username;
-        header.appendChild(username);
-        
-        if (data.is_question) {
-            const pointsBadge = document.createElement('span');
-            pointsBadge.className = 'points-badge';
-            pointsBadge.textContent = `${data.points_offered} points`;
-            header.appendChild(pointsBadge);
-        }
-        
-        messageContent.appendChild(header);
-        
-        const text = document.createElement('p');
-        text.className = 'mb-0';
-        text.textContent = data.content;
-        messageContent.appendChild(text);
-        
-        const metadata = document.createElement('div');
-        metadata.className = 'message-metadata';
-        
-        const timestamp = document.createElement('small');
-        timestamp.className = 'text-muted float-end';
-        timestamp.textContent = data.timestamp;
-        
-        metadata.appendChild(timestamp);
-        messageContent.appendChild(metadata);
-        
-        // Add message actions
-        const actions = document.createElement('div');
-        actions.className = 'message-actions';
-        
-        // Show answer button for questions that aren't from the current user
-        if (data.is_question && data.user_id !== currentUserId) {
-            const answerBtn = document.createElement('button');
-            answerBtn.className = 'btn btn-sm btn-outline-success answer-btn';
-            answerBtn.setAttribute('data-question-id', data.id);
-            answerBtn.textContent = `Answer (${data.points_offered} points)`;
-            actions.appendChild(answerBtn);
-        }
-        
-        // Show accept answer button for answers to the current user's questions
-        if (data.parent_id) {
-            const question = document.querySelector(`.message[data-message-id="${data.parent_id}"]`);
-            if (question && parseInt(question.dataset.userId) === currentUserId && !data.accepted_answer_id) {
-                const acceptBtn = document.createElement('button');
-                acceptBtn.className = 'btn btn-sm btn-outline-primary accept-answer-btn';
-                acceptBtn.setAttribute('data-answer-id', data.id);
-                acceptBtn.textContent = 'Accept Answer';
-                actions.appendChild(acceptBtn);
-            }
-        }
-        
-        messageContent.appendChild(actions);
-        messageDiv.appendChild(messageContent);
-        messagesContainer.appendChild(messageDiv);
-        scrollToBottom(messagesContainer);
-        
-        console.log('Message appended successfully with data:', data);
-    } catch (error) {
-        console.error('Error appending message:', error);
+    if (data.user_id === currentUserId) {
+        classes.push('sent');
+    } else {
+        classes.push('received');
     }
+    messageDiv.className = classes.join(' ');
+    messageDiv.dataset.messageId = data.id;
+    messageDiv.dataset.userId = data.user_id;
+    
+    // Create message content
+    let html = `
+        <div class="message-content">
+            <div class="d-flex justify-content-between align-items-start">
+                <small class="text-muted">${data.username}</small>
+                ${data.is_question ? `<span class="points-badge">${data.points_offered} points</span>` : ''}
+            </div>
+            <p class="mb-0">${data.content}</p>
+            <div class="message-metadata">
+                <small class="text-muted float-end">${data.timestamp}</small>
+            </div>
+            <div class="message-actions">`;
+    
+    // Add answer button for questions
+    if (data.is_question && !data.accepted_answer_id && data.user_id !== currentUserId) {
+        html += `
+            <button class="btn btn-sm btn-outline-success answer-btn" data-question-id="${data.id}">
+                Answer (${data.points_offered} points)
+            </button>`;
+    }
+    
+    html += `</div></div>`;
+    messageDiv.innerHTML = html;
+    messagesContainer.appendChild(messageDiv);
+    scrollToBottom();
 }
 
 function updateActiveMembers(members) {

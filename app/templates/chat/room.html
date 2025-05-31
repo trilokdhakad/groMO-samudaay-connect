@@ -186,10 +186,6 @@
                                         </div>
                                         <p class="mb-0">{{ message.content }}</p>
                                         <div class="message-metadata">
-                                            <span class="message-emoji">{{ message.intent_emoji|default('💬') }}</span>
-                                            <span class="intent-badge">{{ message.intent|default('other') }}</span>
-                                            <span class="message-emoji">{{ message.emotion_emoji|default('😐') }}</span>
-                                            <span class="emotion-badge emotion-{{ message.primary_emotion|default('neutral') }}">{{ message.primary_emotion|default('neutral') }}</span>
                                             <small class="text-muted float-end">{{ message.timestamp.strftime('%H:%M') }}</small>
                                         </div>
                                         <div class="message-actions">
@@ -413,10 +409,6 @@
                 </div>
                 <p class="mb-0">${data.content}</p>
                 <div class="message-metadata">
-                    <span class="message-emoji">${data.intent_emoji || '💬'}</span>
-                    <span class="intent-badge">${data.intent || 'other'}</span>
-                    <span class="message-emoji">${data.emotion_emoji || '😐'}</span>
-                    <span class="emotion-badge emotion-${data.primary_emotion || 'neutral'}">${data.primary_emotion || 'neutral'}</span>
                     <small class="text-muted float-end">${data.timestamp}</small>
                 </div>
                 <div class="message-actions">`;

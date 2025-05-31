@@ -11,7 +11,7 @@ def check_mysql_connection():
         conn = pymysql.connect(
             host='localhost',
             user='root',
-            password='',
+            password='Trilok1234@1',
             database='samudaay_connect'
         )
         print("✅ Successfully connected to MySQL database 'samudaay_connect'")

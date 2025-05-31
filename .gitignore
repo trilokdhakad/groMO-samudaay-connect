@@ -52,3 +52,7 @@ logs/
 # System Files
 .DS_Store
 Thumbs.db 
+
+
+# Ignore all SQL exports
+mysql_export/*.sql

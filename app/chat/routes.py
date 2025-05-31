@@ -2,7 +2,7 @@ from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from app import db, socketio
 from app.chat import bp
-from app.models import Room, Message, RoomMembership
+from app.models import Room, Message, RoomMembership, UserMetrics, Rating
 from app.forms import CreateRoomForm
 from app.text_analysis import text_analyzer
 from app.moderation import check_message
@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import json
 from collections import defaultdict
 from flask_socketio import emit, join_room, leave_room
+from app.sentiment import sentiment_analyzer
+from app.sales_analysis import sales_analyzer
 
 # Predefined lists of states and products
 INDIAN_STATES = [
@@ -259,10 +261,19 @@ def handle_message(data):
             points_offered=points_offered if is_question else 0
         )
         
+        # Perform sentiment and intent analysis before saving
+        analysis = text_analyzer.analyze_message(content)
+        message.primary_emotion = analysis['emotions']['primary_emotion']
+        message.emotion_score = analysis['emotions']['emotion_score']
+        message.all_emotions = json.dumps(analysis['emotions']['all_emotions'])
+        message.intent = analysis['intent']['intent']
+        message.intent_confidence = analysis['intent']['confidence']
+        message.all_intents = json.dumps(analysis['intent']['all_intents'])
+        
         db.session.add(message)
         db.session.commit()
         
-        # Broadcast the message
+        # Broadcast the message with sentiment and intent info
         emit('message', {
             'id': message.id,
             'content': message.content,
@@ -272,7 +283,11 @@ def handle_message(data):
             'points_offered': message.points_offered,
             'user_id': current_user.id,
             'parent_id': message.parent_id,
-            'accepted_answer_id': message.accepted_answer_id if hasattr(message, 'accepted_answer_id') else None
+            'accepted_answer_id': message.accepted_answer_id if hasattr(message, 'accepted_answer_id') else None,
+            'primary_emotion': message.primary_emotion,
+            'emotion_emoji': analysis['emotions']['emoji'],
+            'intent': message.intent,
+            'intent_emoji': analysis['intent']['emoji']
         }, room=room_id)
         
     except Exception as e:
