@@ -7,6 +7,7 @@ from collections import Counter
 import numpy as np
 import json
 from sqlalchemy.orm import validates
+from typing import Dict
 
 @login_manager.user_loader
 def load_user(id):
@@ -561,6 +562,23 @@ class Message(db.Model):
 
         db.session.commit()
         return self.likes, self.dislikes
+
+    @classmethod
+    def get_recent_intent_distribution(cls, room_id: int, limit: int = 10) -> Dict[str, float]:
+        """Get the intent distribution for the last N messages in a room"""
+        messages = cls.query.filter_by(room_id=room_id).order_by(cls.timestamp.desc()).limit(limit).all()
+        if not messages:
+            return {'exploring': 1.0}
+            
+        intent_counts = {}
+        total = len(messages)
+        
+        for msg in messages:
+            intent = msg.sales_intent or 'exploring'
+            intent_counts[intent] = intent_counts.get(intent, 0) + 1
+            
+        # Convert counts to percentages
+        return {intent: count/total for intent, count in intent_counts.items()}
 
 class UserMetrics(db.Model):
     id = db.Column(db.Integer, primary_key=True)

@@ -100,51 +100,30 @@
         </div>
 
         <div>
-            <h6 class="mb-3">Intent Distribution:</h6>
+            <h6 class="mb-3">Intent Distribution (Last 10 Messages):</h6>
             <div class="intent-distribution">
-                {% if room.intent_weights %}
-                    {% for intent, weight in room.get_intent_distribution().items()|sort(attribute='1', reverse=true) if weight > 0 %}
-                        <div class="intent-item">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <span class="intent-label">
-                                    {{ intent_icons[intent] }} {{ intent|replace('_', ' ')|title }}
-                                </span>
-                                <span class="badge bg-{{ intent_colors[intent] }}">
-                                    {{ "%.1f"|format(weight * 100) }}%
-                                </span>
-                            </div>
-                            <div class="progress intent-progress">
-                                <div class="progress-bar bg-{{ intent_colors[intent] }}" 
-                                     role="progressbar" 
-                                     style="width: {{ (weight * 100)|round(1) }}%"
-                                     aria-valuenow="{{ (weight * 100)|round(1) }}" 
-                                     aria-valuemin="0" 
-                                     aria-valuemax="100">
-                                </div>
-                            </div>
-                        </div>
-                    {% endfor %}
-                {% else %}
+                {% set intent_distribution = Message.get_recent_intent_distribution(room.id, 10) %}
+                {% for intent, weight in intent_distribution.items()|sort(attribute='1', reverse=true) %}
                     <div class="intent-item">
                         <div class="d-flex justify-content-between align-items-center">
                             <span class="intent-label">
-                                {{ intent_icons[room.current_intent] }} {{ room.current_intent|replace('_', ' ')|title }}
+                                {{ intent_icons[intent] }} {{ intent|replace('_', ' ')|title }}
                             </span>
-                            <span class="badge bg-{{ intent_colors[room.current_intent] }}">
-                                100.0%
+                            <span class="badge bg-{{ intent_colors[intent] }}">
+                                {{ "%.1f"|format(weight * 100) }}%
                             </span>
                         </div>
                         <div class="progress intent-progress">
-                            <div class="progress-bar bg-{{ intent_colors[room.current_intent] }}" 
+                            <div class="progress-bar bg-{{ intent_colors[intent] }}" 
                                  role="progressbar" 
-                                 style="width: 100%"
-                                 aria-valuenow="100" 
+                                 style="width: {{ (weight * 100)|round(1) }}%"
+                                 aria-valuenow="{{ (weight * 100)|round(1) }}" 
                                  aria-valuemin="0" 
                                  aria-valuemax="100">
                             </div>
                         </div>
                     </div>
-                {% endif %}
+                {% endfor %}
             </div>
         </div>
     </div>

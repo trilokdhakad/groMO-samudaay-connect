@@ -74,7 +74,7 @@ def room(room_id):
     membership.is_active = True
     db.session.commit()
     
-    return render_template('chat/room.html', room=room, messages=messages)
+    return render_template('chat/room.html', room=room, messages=messages, Message=Message)
 
 @bp.route('/room/<int:room_id>/topics')
 @login_required
