@@ -1,35 +1,37 @@
-import sqlite3
+import pymysql
 from datetime import datetime
 
-def display_intents():
-    # Connect to the database
-    conn = sqlite3.connect('app.db')
-    cursor = conn.cursor()
+# Configuration
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root', 
+    'password': '',
+    'database': 'samudaay_connect'
+}
 
-    # Get the most recent messages with their intents
-    cursor.execute("""
-        SELECT content, sales_intent, timestamp
-        FROM message
-        ORDER BY timestamp DESC
-        LIMIT 10
-    """)
-    
-    messages = cursor.fetchall()
-    
-    if not messages:
-        print("\nNo messages found in the database.")
-    else:
-        print("\nMost Recent Messages and Their Sales Intents:")
-        print("-" * 70)
-        for content, intent, timestamp in messages:
-            # Convert timestamp to readable format
-            time_str = datetime.fromisoformat(timestamp).strftime('%Y-%m-%d %H:%M:%S')
-            print(f"\nTime: {time_str}")
-            print(f"Message: {content}")
-            print(f"Intent: {'Not classified' if intent is None else intent}")
-            print("-" * 70)
+conn = pymysql.connect(**DB_CONFIG)
+cursor = conn.cursor()
 
-    conn.close()
+# Get all messages with their sales intents
+cursor.execute("""
+    SELECT id, content, sales_intent, timestamp 
+    FROM message 
+    ORDER BY timestamp DESC
+""")
+
+messages = cursor.fetchall()
+
+print(f"Found {len(messages)} messages:")
+print("-" * 80)
+
+for msg_id, content, sales_intent, timestamp in messages:
+    print(f"ID: {msg_id}")
+    print(f"Content: {content[:100]}{'...' if len(content) > 100 else ''}")
+    print(f"Sales Intent: {sales_intent}")
+    print(f"Timestamp: {timestamp}")
+    print("-" * 40)
+
+conn.close()
 
 if __name__ == "__main__":
     display_intents() 

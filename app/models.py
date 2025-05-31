@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 from app import db, login_manager
-from sqlalchemy.dialects.postgresql import ARRAY
 from collections import Counter
 import numpy as np
 import json

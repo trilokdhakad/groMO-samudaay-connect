@@ -24,42 +24,36 @@ def start_intent_updater():
     """Start the sales intent updater in a background thread"""
     from app.sales_analysis import sales_analyzer
     import time
-    import sqlite3
     from datetime import timedelta
     
     def update_intents():
         try:
-            # Connect to the database
-            conn = sqlite3.connect('app.db')
-            cursor = conn.cursor()
-
-            # Get messages from the last 5 minutes
-            cutoff_time = (datetime.now(UTC) - timedelta(minutes=5)).strftime('%Y-%m-%d %H:%M:%S')
+            from app.models import Message
+            from flask import current_app
             
-            cursor.execute("""
-                SELECT id, content
-                FROM message
-                WHERE timestamp >= ?
-                ORDER BY timestamp DESC
-            """, (cutoff_time,))
-            
-            messages = cursor.fetchall()
+            with current_app.app_context():
+                # Get messages from the last 5 minutes
+                cutoff_time = datetime.now(UTC) - timedelta(minutes=5)
+                
+                messages = Message.query.filter(
+                    Message.timestamp >= cutoff_time
+                ).order_by(Message.timestamp.desc()).all()
 
-            # Update intents
-            for msg_id, content in messages:
-                intent = sales_analyzer.analyze(content)
-                cursor.execute("""
-                    UPDATE message
-                    SET sales_intent = ?
-                    WHERE id = ?
-                """, (intent, msg_id))
+                # Update intents
+                for msg in messages:
+                    intent = sales_analyzer.analyze(msg.content)
+                    msg.sales_intent = intent
 
-            # Commit changes
-            conn.commit()
-            conn.close()
-            
+                # Commit changes
+                db.session.commit()
+                
         except Exception as e:
             print(f"Error updating intents: {e}")
+            # Rollback in case of error
+            try:
+                db.session.rollback()
+            except:
+                pass
     
     def run_updater():
         while True:

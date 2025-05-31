@@ -1,21 +1,20 @@
-import sqlite3
+import pymysql
 
-# Connect to the database
-conn = sqlite3.connect('app.db')
+# Connect to MySQL database
+conn = pymysql.connect(
+    host='localhost',
+    user='root',
+    password='',
+    database='samudaay_connect'
+)
 cursor = conn.cursor()
 
-# Get list of tables
-cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+# Show tables
+cursor.execute("SHOW TABLES;")
 tables = cursor.fetchall()
 
-print("\nTables in database:")
-print("-" * 40)
+print("Tables in the database:")
 for table in tables:
-    print(f"Table: {table[0]}")
-    # Get count of records in each table
-    cursor.execute(f"SELECT COUNT(*) FROM {table[0]}")
-    count = cursor.fetchone()[0]
-    print(f"Number of records: {count}")
-    print("-" * 20)
+    print(f"- {table[0]}")
 
 conn.close() 
