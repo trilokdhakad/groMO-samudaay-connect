@@ -6,312 +6,149 @@ class SalesIntentAnalyzer:
     def __init__(self):
         # Define keywords and patterns for each intent
         self.intent_patterns: Dict[str, List[str]] = {
-            'exploring': [
-                # Basic exploration patterns
-                r'looking into',
-                r'considering',
-                r'thinking about',
-                r'tell me more',
-                r'want to know',
-                r'checked.*reviews',
-                r'read.*fine print',
-                r'found.*plan',
-                r'checking.*coverage',
-                r'researching',
-                r'comparing',
-                r'looking at',
-                r'reading about',
-                r'studying.*terms',
-                r'investigating',
-                r'exploring',
-                r'reviewing',
-                r'searching for',
-                # Financial product patterns
-                r'interest.*rate',
-                r'loan.*process',
-                r'credit.*score',
-                r'approval.*time',
-                r'processing.*fee',
-                r'hidden.*charge',
-                r'fine.*print',
-                r'loan.*term',
-                r'repayment.*period',
-                r'loan.*type',
-                r'credit.*check'
-            ],
-            
             'interested': [
-                # Direct interest
-                r'could be.*safety net',
-                r'might be worth',
-                r'responsible move',
-                r'need.*coverage',
-                r'emergency.*savings',
-                r'protect.*savings',
-                r'after covid',
-                r'medical emergency',
-                r'considering it',
-                r'sounds.*good',
-                r'interested',
+                # Direct interest patterns
+                r'sounds useful',
+                r'i\'ll try it',
+                r'how does.*work',
+                r'that.*useful',
+                r'interested in',
                 r'want to try',
-                r'would like to',
-                r'makes sense',
-                r'good.*protection',
-                r'seems.*helpful',
-                r'worth.*investment',
-                # Financial interest patterns
-                r'ready.*apply',
-                r'want.*loan',
-                r'need.*loan',
-                r'looking.*borrow',
-                r'planning.*take.*loan',
-                r'thinking.*apply',
-                r'want.*credit',
-                r'need.*credit',
-                r'improve.*credit.*score',
-                r'build.*credit.*history'
+                r'tell me more about',
+                r'sounds good',
+                r'seems helpful',
+                r'could work',
+                r'might help',
+                r'worth looking into',
+                r'that funnel',
+                r'how.*approach.*work'
             ],
             
-            'confused': [
-                # Direct confusion
-                r'not clear',
-                r'confused',
-                r'don\'t understand',
-                r'what do you mean',
-                r'unclear',
-                r'how does that work',
-                r'explain this',
-                r'clarify',
-                r'bit confused',
-                r'not sure how',
-                r'what.*mean by',
-                r'need clarification',
-                r'hard to understand',
-                r'complicated',
-                r'confusing',
-                r'gets confusing',
-                r'fine print.*confusing',
-                r'terms.*unclear',
-                r'policy.*complicated',
-                r'coverage.*confusing',
-                r'exclusions.*unclear',
-                r'benefits.*not clear',
-                r'don\'t get.*terms',
-                r'clauses.*confusing',
-                r'conditions.*unclear',
-                # Financial confusion patterns
-                r'interest.*calculation',
-                r'credit.*score.*work',
-                r'loan.*process.*confusing',
-                r'approval.*process.*unclear',
-                r'charges.*unclear',
-                r'fees.*confusing',
-                r'repayment.*terms.*unclear',
-                r'credit.*report.*confusing'
+            'engaging': [
+                # Active participation patterns
+                r'that\'s.*great approach',
+                r'here\'s how i',
+                r'i do it',
+                r'my approach is',
+                r'i\'ve found',
+                r'in my experience',
+                r'what works for me',
+                r'i usually',
+                r'my strategy is',
+                r'i prefer to',
+                r'contributing',
+                r'sharing my',
+                r'let me share',
+                r'my method'
             ],
             
-            'needs_support': [
-                r'help',
-                r'support',
-                r'assist',
-                r'guide',
-                r'show me',
-                r'how to',
-                r'can you help',
-                r'need assistance',
-                r'help me.*understand',
-                r'guide me through',
-                r'walk me through',
-                r'need help with',
-                r'assistance.*with',
-                r'support.*with',
-                r'explain.*coverage',
-                r'clarify.*terms',
-                r'help.*understand.*policy',
-                r'assistance.*claim',
-                r'guide.*through.*process',
-                r'support.*filing',
-                r'help.*choose.*plan',
-                r'advice.*coverage',
-                r'recommendation.*policy',
-                r'suggestion.*plan',
-                # Financial support patterns
-                r'help.*loan.*application',
-                r'assist.*credit.*check',
-                r'guide.*loan.*process',
-                r'explain.*interest.*rate',
-                r'help.*understand.*terms',
-                r'support.*documentation',
-                r'assist.*paperwork',
-                r'help.*improve.*score'
+            'exploration': [
+                # Curiosity and testing patterns
+                r'testing',
+                r'experimenting',
+                r'trying out',
+                r'comparing',
+                r'evaluating',
+                r'any advice',
+                r'what works better',
+                r'which is better',
+                r'pros and cons',
+                r'advantages of',
+                r'differences between',
+                r'vs',
+                r'versus',
+                r'not decided',
+                r'still considering'
             ],
             
-            'facing_issues': [
-                # Insurance-specific issues
-                r'premium.*too high',
-                r'coverage.*inadequate',
-                r'claim.*rejected',
-                r'denied.*claim',
-                r'exclusions.*too many',
-                r'terms.*unfair',
-                r'expensive.*premium',
-                r'high.*cost',
-                r'difficult.*claim',
-                r'problems.*approval',
-                r'issues.*coverage',
-                r'limitations.*policy',
-                r'restrictions.*coverage',
-                r'gaps.*protection',
-                r'loopholes.*policy',
-                r'struggle.*claims',
-                r'fight to get',
-                r'not worth',
-                r'too expensive',
-                r'keeps going up',
-                r'no guarantee',
-                r'excludes.*diseases',
-                r'paying.*lakhs',
-                r'long-term trap',
-                r'stress point',
-                # Financial issues patterns
-                r'interest.*too high',
-                r'processing.*fee.*high',
-                r'loan.*rejected',
-                r'credit.*score.*low',
-                r'application.*denied',
-                r'approval.*delayed',
-                r'documentation.*issue',
-                r'repayment.*issue',
-                r'hidden.*charges',
-                r'unexpected.*fees'
+            'problematic': [
+                # Obstacles and frustrations
+                r'getting ghosted',
+                r'no response',
+                r'not working',
+                r'struggling with',
+                r'having trouble',
+                r'difficult to',
+                r'challenge',
+                r'obstacle',
+                r'roadblock',
+                r'frustrating',
+                r'stuck with',
+                r'problem with',
+                r'issue with',
+                r'not getting'
             ],
             
-            'activated': [
-                # Core activation patterns
-                r'got.*coverage',
-                r'signed.*policy',
-                r'completed.*application',
-                r'activated.*policy',
-                r'began.*coverage',
-                r'successfully.*enrolled',
-                r'already.*insured',
-                r'policy.*active',
-                r'coverage.*started',
-                r'got.*approved',
-                r'successfully.*registered',
-                r'protection.*place',
-                r'plan.*active',
-                # Additional patterns
-                r'finished.*enrollment',
-                r'completed.*registration',
-                r'fully.*covered',
-                r'setup.*complete',
-                r'made.*payment',
-                r'processed.*premium',
-                r'account.*active',
-                r'using.*coverage',
-                r'policy.*effect',
-                r'enrollment.*done',
-                r'paperwork.*completed',
-                r'ready.*covered',
-                r'actively.*insured'
+            'insightful': [
+                # Strategic advice patterns
+                r'instead of',
+                r'better approach',
+                r'what i learned',
+                r'key is to',
+                r'focus on',
+                r'strategy is',
+                r'important to',
+                r'works better',
+                r'more effective',
+                r'tip is',
+                r'advice would be',
+                r'recommend',
+                r'suggestion',
+                r'insight'
             ],
             
-            'inactive': [
-                # Core inactivity patterns
-                r'not.*covered',
-                r'haven\'t.*enrolled',
-                r'no.*policy.*yet',
-                r'not.*insured',
-                r'busy with',
-                r'haven\'t.*decided',
-                r'not.*started',
-                r'yet to.*enroll',
-                r'still.*waiting',
-                r'been too busy',
-                r'no.*coverage',
-                r'haven\'t.*applied',
-                r'didn\'t.*sign up',
-                r'not.*protected.*yet',
-                # Additional patterns
-                r'too busy.*to.*enroll',
-                r'no time.*to.*apply',
-                r'will.*enroll.*later',
-                r'start.*next.*month',
-                r'need more time',
-                r'haven\'t.*registered',
-                r'haven\'t.*submitted',
-                r'applied.*but.*not.*approved',
-                r'registered.*but.*not.*active',
-                r'signed up.*but.*haven\'t.*paid',
-                r'coverage.*inactive',
-                r'taking.*break',
-                r'paused.*application'
+            'progress_oriented': [
+                # Progress and improvement patterns
+                r'got my first',
+                r'making progress',
+                r'improved',
+                r'better results',
+                r'working better',
+                r'seeing improvement',
+                r'getting better',
+                r'milestone',
+                r'achievement',
+                r'success with',
+                r'breakthrough',
+                r'finally got',
+                r'starting to work',
+                r'positive change'
             ],
             
-            'ready_to_onboard': [
-                r'ready to.*apply',
-                r'let\'s.*enroll',
-                r'want to.*sign up',
-                r'sign me up',
-                r'how do (i|we).*enroll',
-                r'begin.*application',
-                r'get.*coverage',
-                r'start.*process',
-                r'ready to.*register',
-                r'want to.*enroll',
-                r'begin.*now',
-                r'apply.*right away',
-                r'sign.*up.*now',
-                r'where do.*apply'
+            'supportive': [
+                # Encouragement patterns
+                r'don\'t worry',
+                r'gets better',
+                r'here to help',
+                r'can help you',
+                r'let me know if',
+                r'happy to help',
+                r'keep going',
+                r'you\'ll get there',
+                r'you can do it',
+                r'stick with it',
+                r'hang in there',
+                r'support you',
+                r'encourage',
+                r'believe in you'
             ],
             
-            'followed_up': [
-                r'following up',
-                r'checking back',
-                r'as discussed',
-                r'regarding our last',
-                r'about our previous',
-                r'last.*conversation',
-                r'previous.*discussion',
-                r'discussed yesterday',
-                r'our chat',
-                r'our call',
-                r'earlier.*conversation',
-                r'mentioned earlier',
-                r'follow.*up.*on',
-                r'getting back.*about'
-            ],
-            
-            'dropped_off': [
-                r'not interested',
-                r'quit',
-                r'stop',
-                r'cancel',
-                r'remove',
-                r'don\'t contact',
-                r'won\'t be proceeding',
-                r'no longer.*interested',
-                r'changed.*mind',
-                r'too expensive',
-                r'can\'t afford',
-                r'not worth',
-                r'doesn\'t seem safe',
-                r'don\'t trust',
-                r'seems like.*scam',
-                r'not.*looking for',
-                r'remove.*from.*list',
-                r'isn\'t for me',
-                r'not for me',
-                r'cancel.*policy',
-                r'delete.*application',
-                r'opt out',
-                r'rather.*save.*myself',
-                r'better without.*insurance',
-                r'waste.*money',
-                r'found better.*alternative',
-                r'going with.*different.*provider',
-                r'terms.*unacceptable'
+            'reflective': [
+                # Analysis and reflection patterns
+                r'looking back',
+                r'realized',
+                r'learned that',
+                r'mistake was',
+                r'should have',
+                r'next time',
+                r'in hindsight',
+                r'reflection',
+                r'analyzing',
+                r'understand now',
+                r'see where',
+                r'rushed',
+                r'too early',
+                r'could have'
             ]
         }
         
@@ -350,16 +187,14 @@ class SalesIntentAnalyzer:
             
             # Priority order (most important first)
             priority_order = [
-                'dropped_off',  # Highest priority - clear negative signal
-                'inactive',     # Strong signal about current state
-                'activated',    # Strong signal about current state
-                'ready_to_onboard',
-                'facing_issues',
-                'needs_support',
-                'interested',
-                'confused',
-                'followed_up',
-                'exploring'     # Lowest priority - default state
+                'problematic',     # Highest priority - needs immediate attention
+                'supportive',      # Important for maintaining engagement
+                'insightful',      # Valuable contributions
+                'progress_oriented', # Positive momentum
+                'reflective',      # Deep engagement
+                'engaging',        # Active participation
+                'interested',      # Shows potential
+                'exploration'      # Default state
             ]
             
             # Return the highest priority intent among those with max score
@@ -384,7 +219,7 @@ class SalesIntentAnalyzer:
             - intent_weights: Dictionary of intent weights/distribution
         """
         if not messages:
-            return 'exploring', {'exploring': 1.0}
+            return 'exploration', {'exploration': 1.0}
             
         # Analyze all messages
         intents = []
@@ -405,14 +240,16 @@ class SalesIntentAnalyzer:
                 top_intents = [intent for intent, score in scores.items() 
                              if score == max_score]
                 
-                # Priority order for single message
+                # Priority order for single message - using new categories
                 priority_order = [
-                    'dropped_off',
-                    'facing_issues',
-                    'confused',
-                    'needs_support',
-                    'interested',
-                    'exploring'
+                    'problematic',     # Highest priority - needs immediate attention
+                    'supportive',      # Important for maintaining engagement
+                    'insightful',      # Valuable contributions
+                    'progress_oriented', # Positive momentum
+                    'reflective',      # Deep engagement
+                    'engaging',        # Active participation
+                    'interested',      # Shows potential
+                    'exploration'      # Default state
                 ]
                 
                 # Return highest priority intent
@@ -421,7 +258,7 @@ class SalesIntentAnalyzer:
                         intents.append(intent)
                         break
             else:
-                intents.append('exploring')
+                intents.append('exploration')
         
         # Count all intents with more weight on recent messages
         intent_counts = Counter(intents)
@@ -438,21 +275,23 @@ class SalesIntentAnalyzer:
         total = sum(intent_counts.values())
         intent_weights = {intent: count/total for intent, count in intent_counts.items()}
         
-        # Determine dominant intent based on weights and priority
+        # Use the same priority order as single message analysis
         priority_order = [
-            'dropped_off',
-            'facing_issues',
-            'confused',
-            'needs_support',
-            'interested',
-            'exploring'
+            'problematic',     # Highest priority - needs immediate attention
+            'supportive',      # Important for maintaining engagement
+            'insightful',      # Valuable contributions
+            'progress_oriented', # Positive momentum
+            'reflective',      # Deep engagement
+            'engaging',        # Active participation
+            'interested',      # Shows potential
+            'exploration'      # Default state
         ]
         
         # Use threshold for significant presence
         threshold = 0.2  # 20% presence
         
         # Find the highest priority intent that has significant presence
-        dominant_intent = 'exploring'  # default
+        dominant_intent = 'exploration'  # default
         for intent in priority_order:
             if intent in intent_weights and intent_weights[intent] >= threshold:
                 dominant_intent = intent

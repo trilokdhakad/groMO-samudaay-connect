@@ -8,16 +8,14 @@ from datetime import datetime, timedelta
 
 # Define intent colors
 INTENT_COLORS = {
-    'exploring': 'info',
-    'interested': 'primary',
-    'confused': 'warning',
-    'needs_support': 'secondary',
-    'facing_issues': 'danger',
-    'activated': 'success',
-    'inactive': 'dark',
-    'ready_to_onboard': 'primary',
-    'followed_up': 'info',
-    'dropped_off': 'danger'
+    'exploration': 'primary',
+    'interested': 'purple',
+    'engaging': 'success',
+    'problematic': 'danger',
+    'insightful': 'warning',
+    'progress_oriented': 'success',
+    'supportive': 'dark',
+    'reflective': 'info'
 }
 
 @bp.route('/')

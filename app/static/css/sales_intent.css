@@ -1,0 +1,194 @@
+/* Sales Intent Styles */
+.sales-intent-component .badge {
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Intent-specific badge styles */
+.sales-intent-component .badge.bg-blue {
+    background-color: #3b82f6 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+}
+
+.sales-intent-component .badge.bg-green {
+    background-color: #22c55e !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.2);
+}
+
+.sales-intent-component .badge.bg-teal {
+    background-color: #14b8a6 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(20, 184, 166, 0.2);
+}
+
+.sales-intent-component .badge.bg-red {
+    background-color: #ef4444 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
+}
+
+.sales-intent-component .badge.bg-amber {
+    background-color: #f59e0b !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+}
+
+.sales-intent-component .badge.bg-emerald {
+    background-color: #10b981 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.2);
+}
+
+.sales-intent-component .badge.bg-orange {
+    background-color: #f97316 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(249, 115, 22, 0.2);
+}
+
+.sales-intent-component .badge.bg-purple {
+    background-color: #8b5cf6 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(139, 92, 246, 0.2);
+}
+
+/* New intent colors */
+.sales-intent-component .badge.bg-indigo {
+    background-color: #6366f1 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.sales-intent-component .badge.bg-rose {
+    background-color: #e11d48 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(225, 29, 72, 0.2);
+}
+
+.sales-intent-component .badge.bg-lime {
+    background-color: #84cc16 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(132, 204, 22, 0.2);
+}
+
+.sales-intent-component .badge.bg-slate {
+    background-color: #64748b !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(100, 116, 139, 0.2);
+}
+
+.sales-intent-component .badge.bg-cyan {
+    background-color: #06b6d4 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(6, 182, 212, 0.2);
+}
+
+.sales-intent-component .badge.bg-fuchsia {
+    background-color: #d946ef !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(217, 70, 239, 0.2);
+}
+
+.sales-intent-component .badge.bg-gray {
+    background-color: #6b7280 !important;
+    color: white !important;
+    box-shadow: 0 2px 4px rgba(107, 114, 128, 0.2);
+}
+
+/* Progress bar colors */
+.sales-intent-component .progress-bar.bg-blue { background-color: #3b82f6 !important; }
+.sales-intent-component .progress-bar.bg-green { background-color: #22c55e !important; }
+.sales-intent-component .progress-bar.bg-teal { background-color: #14b8a6 !important; }
+.sales-intent-component .progress-bar.bg-red { background-color: #ef4444 !important; }
+.sales-intent-component .progress-bar.bg-amber { background-color: #f59e0b !important; }
+.sales-intent-component .progress-bar.bg-emerald { background-color: #10b981 !important; }
+.sales-intent-component .progress-bar.bg-orange { background-color: #f97316 !important; }
+.sales-intent-component .progress-bar.bg-purple { background-color: #8b5cf6 !important; }
+.sales-intent-component .progress-bar.bg-indigo { background-color: #6366f1 !important; }
+.sales-intent-component .progress-bar.bg-rose { background-color: #e11d48 !important; }
+.sales-intent-component .progress-bar.bg-lime { background-color: #84cc16 !important; }
+.sales-intent-component .progress-bar.bg-slate { background-color: #64748b !important; }
+.sales-intent-component .progress-bar.bg-cyan { background-color: #06b6d4 !important; }
+.sales-intent-component .progress-bar.bg-fuchsia { background-color: #d946ef !important; }
+.sales-intent-component .progress-bar.bg-gray { background-color: #6b7280 !important; }
+
+/* Intent item styling */
+.sales-intent-component .intent-item {
+    padding: 1rem;
+    border-radius: 8px;
+    background-color: #f8f9fa;
+    margin-bottom: 0.75rem;
+    border: 1px solid #e9ecef;
+    transition: all 0.2s ease;
+}
+
+.sales-intent-component .intent-item:hover {
+    background-color: #fff;
+    border-color: currentColor;
+    transform: translateX(4px);
+}
+
+/* Intent-specific item colors */
+.sales-intent-component .intent-item[data-intent="exploration"] { color: #3b82f6; }
+.sales-intent-component .intent-item[data-intent="interested"] { color: #22c55e; }
+.sales-intent-component .intent-item[data-intent="engaging"] { color: #14b8a6; }
+.sales-intent-component .intent-item[data-intent="problematic"] { color: #ef4444; }
+.sales-intent-component .intent-item[data-intent="insightful"] { color: #f59e0b; }
+.sales-intent-component .intent-item[data-intent="progress_oriented"] { color: #10b981; }
+.sales-intent-component .intent-item[data-intent="supportive"] { color: #f97316; }
+.sales-intent-component .intent-item[data-intent="reflective"] { color: #8b5cf6; }
+.sales-intent-component .intent-item[data-intent="needs_support"] { color: #6366f1; }
+.sales-intent-component .intent-item[data-intent="confused"] { color: #e11d48; }
+.sales-intent-component .intent-item[data-intent="activated"] { color: #84cc16; }
+.sales-intent-component .intent-item[data-intent="inactive"] { color: #64748b; }
+.sales-intent-component .intent-item[data-intent="ready_to_onboard"] { color: #06b6d4; }
+.sales-intent-component .intent-item[data-intent="followed_up"] { color: #d946ef; }
+.sales-intent-component .intent-item[data-intent="dropped_off"] { color: #6b7280; }
+
+.sales-intent-component .intent-label {
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.sales-intent-component .intent-percentage {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.sales-intent-component .intent-progress {
+    height: 6px;
+    margin-top: 0.75rem;
+    border-radius: 4px;
+    background-color: #f1f5f9;
+    overflow: hidden;
+}
+
+.sales-intent-component .intent-distribution {
+    max-height: 300px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.sales-intent-component .intent-distribution::-webkit-scrollbar {
+    width: 4px;
+}
+
+.sales-intent-component .intent-distribution::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 2px;
+}
+
+.sales-intent-component .intent-distribution::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
+}
+
+/* Add hover effect for better interactivity */
+.sales-intent-component .intent-item:hover .progress-bar {
+    opacity: 1;
+} 
