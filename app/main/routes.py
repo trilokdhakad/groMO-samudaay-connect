@@ -1,10 +1,11 @@
-from flask import render_template, flash, redirect, url_for, jsonify
+from flask import render_template, flash, redirect, url_for, jsonify, request
 from flask_login import login_required, current_user
 from app.main import bp
 from app.models import User, UserProfile, Message, Room
 from app import db
 from app.chat.routes import INDIAN_STATES, PRODUCT_CATEGORIES  # Import product categories
 from datetime import datetime, timedelta
+from sqlalchemy import func, desc, asc
 
 # Define intent colors
 INTENT_COLORS = {
@@ -101,4 +102,67 @@ def profile():
     return render_template('main/profile.html', 
                          title='Profile',
                          user=current_user,
-                         Message=Message) 
+                         Message=Message)
+
+@bp.route('/message-leaderboard')
+@login_required
+def message_leaderboard():
+    """Display leaderboard based on message likes/dislikes for specific rooms"""
+    # Get selected state and room from query parameters
+    selected_state = request.args.get('state', '')
+    selected_room_id = request.args.get('room_id', type=int)
+
+    # Get all states and their rooms
+    states_and_rooms = {}
+    for state in INDIAN_STATES:
+        rooms = Room.query.filter(Room.name.like(f'{state} - %')).all()
+        if rooms:
+            states_and_rooms[state] = rooms
+
+    # If state is selected but no room, use the first room of that state
+    if selected_state and not selected_room_id and selected_state in states_and_rooms:
+        selected_room_id = states_and_rooms[selected_state][0].id
+
+    if selected_room_id:
+        # Subquery to get the latest activity timestamp for each user in the room
+        latest_activity = db.session.query(
+            Message.user_id,
+            func.max(Message.timestamp).label('last_activity')
+        ).filter(Message.room_id == selected_room_id)\
+        .group_by(Message.user_id).subquery()
+
+        # Query to get user stats with their latest activity for the selected room
+        user_stats = db.session.query(
+            User,
+            func.sum(Message.likes).label('total_likes'),
+            func.sum(Message.dislikes).label('total_dislikes'),
+            latest_activity.c.last_activity
+        ).join(Message, User.id == Message.user_id)\
+        .filter(Message.room_id == selected_room_id)\
+        .join(latest_activity, User.id == latest_activity.c.user_id)\
+        .group_by(User)\
+        .order_by(
+            desc('total_likes'),  # Most likes first
+            asc('total_dislikes'),  # Fewer dislikes as tiebreaker
+            desc(latest_activity.c.last_activity)  # Most recent activity as second tiebreaker
+        ).limit(10).all()
+
+        # Format the data for the template
+        leaderboard_data = [{
+            'user': user,
+            'total_likes': total_likes or 0,
+            'total_dislikes': total_dislikes or 0,
+            'last_activity': last_activity
+        } for user, total_likes, total_dislikes, last_activity in user_stats]
+
+        selected_room = Room.query.get(selected_room_id) if selected_room_id else None
+    else:
+        leaderboard_data = []
+        selected_room = None
+
+    return render_template('main/message_leaderboard.html', 
+                         leaderboard=leaderboard_data,
+                         states_and_rooms=states_and_rooms,
+                         selected_state=selected_state,
+                         selected_room=selected_room,
+                         current_user=current_user) 

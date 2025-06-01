@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="fas fa-trophy me-2 text-warning"></i>Message Leaderboard
+                </h5>
+                <small class="text-muted">Top 10 Users by Message Engagement</small>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if leaderboard %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>User</th>
+                            <th class="text-success">
+                                <i class="fas fa-thumbs-up"></i> Likes
+                            </th>
+                            <th class="text-danger">
+                                <i class="fas fa-thumbs-down"></i> Dislikes
+                            </th>
+                            <th>Last Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in leaderboard %}
+                        <tr {% if entry.user.id == current_user.id %}class="table-primary"{% endif %}>
+                            <td class="align-middle">
+                                {% if loop.index == 1 %}
+                                <i class="fas fa-crown text-warning" title="1st Place"></i>
+                                {% elif loop.index == 2 %}
+                                <i class="fas fa-medal text-secondary" title="2nd Place"></i>
+                                {% elif loop.index == 3 %}
+                                <i class="fas fa-medal" style="color: #CD7F32;" title="3rd Place"></i>
+                                {% else %}
+                                {{ loop.index }}
+                                {% endif %}
+                            </td>
+                            <td class="align-middle">
+                                <div class="d-flex align-items-center">
+                                    {% if entry.user.profile and entry.user.profile.avatar_url %}
+                                    <img src="{{ entry.user.profile.avatar_url }}" class="rounded-circle me-2" width="32" height="32" alt="Avatar">
+                                    {% else %}
+                                    <div class="rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="fw-bold">{{ entry.user.username }}</div>
+                                        {% if entry.user.profile and entry.user.profile.location %}
+                                        <small class="text-muted">{{ entry.user.profile.location }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="align-middle text-success fw-bold">
+                                {{ entry.total_likes }}
+                            </td>
+                            <td class="align-middle text-danger fw-bold">
+                                {{ entry.total_dislikes }}
+                            </td>
+                            <td class="align-middle text-muted">
+                                <small>{{ entry.last_activity.strftime('%Y-%m-%d %H:%M') }}</small>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4">
+                <div class="text-muted mb-3">
+                    <i class="fas fa-info-circle fa-2x"></i>
+                </div>
+                <p class="text-muted mb-0">No leaderboard data available yet. Start engaging with messages to appear here!</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %} 
